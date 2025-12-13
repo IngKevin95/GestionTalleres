@@ -1,0 +1,848 @@
+### Variables de configuración
+@baseUrl = http://localhost:8000
+@apiVersion = v1
+
+### ============================================
+### HEALTH CHECK
+### ============================================
+
+GET {{baseUrl}}/health
+
+### ============================================
+### CASO 1: FLUJO COMPLETO (DELIVERED)
+### ============================================
+### Escenario: Orden completa desde creación hasta entrega
+### Resultado esperado: Estado DELIVERED
+
+POST {{baseUrl}}/commands
+Content-Type: application/json
+
+{
+  "commands": [
+    {
+      "op": "CREATE_ORDER",
+      "ts": "2025-03-01T09:00:00Z",
+      "data": {
+        "order_id": "R001",
+        "customer": "ACME",
+        "vehicle": "ABC-123"
+      }
+    },
+    {
+      "op": "ADD_SERVICE",
+      "ts": "2025-03-01T09:05:00Z",
+      "data": {
+        "order_id": "R001",
+        "service": {
+          "description": "Cambio de aceite",
+          "labor_estimated_cost": "500.00",
+          "components": [
+            {
+              "description": "Aceite sintético 5W-30",
+              "estimated_cost": "300.00"
+            },
+            {
+              "description": "Filtro de aceite",
+              "estimated_cost": "150.00"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "op": "SET_STATE_DIAGNOSED",
+      "ts": "2025-03-01T09:10:00Z",
+      "data": {
+        "order_id": "R001"
+      }
+    },
+    {
+      "op": "AUTHORIZE",
+      "ts": "2025-03-01T09:11:00Z",
+      "data": {
+        "order_id": "R001"
+      }
+    },
+    {
+      "op": "SET_STATE_IN_PROGRESS",
+      "ts": "2025-03-01T09:15:00Z",
+      "data": {
+        "order_id": "R001"
+      }
+    },
+    {
+      "op": "SET_REAL_COST",
+      "ts": "2025-03-01T09:20:00Z",
+      "data": {
+        "order_id": "R001",
+        "service_index": 0,
+        "real_cost": "950.00",
+        "completed": true
+      }
+    },
+    {
+      "op": "TRY_COMPLETE",
+      "ts": "2025-03-01T09:25:00Z",
+      "data": {
+        "order_id": "R001"
+      }
+    },
+    {
+      "op": "DELIVER",
+      "ts": "2025-03-01T09:30:00Z",
+      "data": {
+        "order_id": "R001"
+      }
+    }
+  ]
+}
+
+### ============================================
+### CASO 2: EXCEDE 110% (WAITING_FOR_APPROVAL)
+### ============================================
+### Escenario: El costo real excede el 110% del monto autorizado
+### Resultado esperado: Estado WAITING_FOR_APPROVAL + error REQUIRES_REAUTH
+
+POST {{baseUrl}}/commands
+Content-Type: application/json
+
+{
+  "commands": [
+    {
+      "op": "CREATE_ORDER",
+      "ts": "2025-03-01T09:00:00Z",
+      "data": {
+        "order_id": "R002",
+        "customer": "ACME",
+        "vehicle": "ABC-123"
+      }
+    },
+    {
+      "op": "ADD_SERVICE",
+      "ts": "2025-03-01T09:05:00Z",
+      "data": {
+        "order_id": "R002",
+        "service": {
+          "description": "Engine repair",
+          "labor_estimated_cost": "10000.00",
+          "components": [
+            {
+              "description": "Oil pump",
+              "estimated_cost": "1500.00"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "op": "SET_STATE_DIAGNOSED",
+      "ts": "2025-03-01T09:10:00Z",
+      "data": {
+        "order_id": "R002"
+      }
+    },
+    {
+      "op": "AUTHORIZE",
+      "ts": "2025-03-01T09:11:00Z",
+      "data": {
+        "order_id": "R002"
+      }
+    },
+    {
+      "op": "SET_STATE_IN_PROGRESS",
+      "ts": "2025-03-01T09:15:00Z",
+      "data": {
+        "order_id": "R002"
+      }
+    },
+    {
+      "op": "SET_REAL_COST",
+      "ts": "2025-03-01T09:20:00Z",
+      "data": {
+        "order_id": "R002",
+        "service_index": 0,
+        "real_cost": "15000.00",
+        "completed": true
+      }
+    },
+    {
+      "op": "TRY_COMPLETE",
+      "ts": "2025-03-01T09:25:00Z",
+      "data": {
+        "order_id": "R002"
+      }
+    }
+  ]
+}
+
+### ============================================
+### CASO 3: EXACTAMENTE 110% (SIN RE-AUTORIZACIÓN)
+### ============================================
+### Escenario: El costo real es exactamente el 110% del monto autorizado
+### Resultado esperado: Completa sin re-autorización
+
+POST {{baseUrl}}/commands
+Content-Type: application/json
+
+{
+  "commands": [
+    {
+      "op": "CREATE_ORDER",
+      "ts": "2025-03-01T09:00:00Z",
+      "data": {
+        "order_id": "R003",
+        "customer": "ACME",
+        "vehicle": "ABC-123"
+      }
+    },
+    {
+      "op": "ADD_SERVICE",
+      "ts": "2025-03-01T09:05:00Z",
+      "data": {
+        "order_id": "R003",
+        "service": {
+          "description": "Reparación de frenos",
+          "labor_estimated_cost": "10000.00",
+          "components": [
+            {
+              "description": "Pastillas de freno",
+              "estimated_cost": "1500.00"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "op": "SET_STATE_DIAGNOSED",
+      "ts": "2025-03-01T09:10:00Z",
+      "data": {
+        "order_id": "R003"
+      }
+    },
+    {
+      "op": "AUTHORIZE",
+      "ts": "2025-03-01T09:11:00Z",
+      "data": {
+        "order_id": "R003"
+      }
+    },
+    {
+      "op": "SET_STATE_IN_PROGRESS",
+      "ts": "2025-03-01T09:15:00Z",
+      "data": {
+        "order_id": "R003"
+      }
+    },
+    {
+      "op": "SET_REAL_COST",
+      "ts": "2025-03-01T09:20:00Z",
+      "data": {
+        "order_id": "R003",
+        "service_index": 0,
+        "real_cost": "12650.00",
+        "completed": true
+      }
+    },
+    {
+      "op": "TRY_COMPLETE",
+      "ts": "2025-03-01T09:25:00Z",
+      "data": {
+        "order_id": "R003"
+      }
+    }
+  ]
+}
+
+### ============================================
+### CASO 4: RE-AUTORIZACIÓN (AUTHORIZED → COMPLETED)
+### ============================================
+### Escenario: Reautorización después de exceder 110%
+### Resultado esperado: AUTHORIZED → COMPLETED
+
+POST {{baseUrl}}/commands
+Content-Type: application/json
+
+{
+  "commands": [
+    {
+      "op": "CREATE_ORDER",
+      "ts": "2025-03-01T09:00:00Z",
+      "data": {
+        "order_id": "R004",
+        "customer": "ACME",
+        "vehicle": "ABC-123"
+      }
+    },
+    {
+      "op": "ADD_SERVICE",
+      "ts": "2025-03-01T09:05:00Z",
+      "data": {
+        "order_id": "R004",
+        "service": {
+          "description": "Reparación de motor",
+          "labor_estimated_cost": "10000.00",
+          "components": [
+            {
+              "description": "Bomba de aceite",
+              "estimated_cost": "1500.00"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "op": "SET_STATE_DIAGNOSED",
+      "ts": "2025-03-01T09:10:00Z",
+      "data": {
+        "order_id": "R004"
+      }
+    },
+    {
+      "op": "AUTHORIZE",
+      "ts": "2025-03-01T09:11:00Z",
+      "data": {
+        "order_id": "R004"
+      }
+    },
+    {
+      "op": "SET_STATE_IN_PROGRESS",
+      "ts": "2025-03-01T09:15:00Z",
+      "data": {
+        "order_id": "R004"
+      }
+    },
+    {
+      "op": "SET_REAL_COST",
+      "ts": "2025-03-01T09:20:00Z",
+      "data": {
+        "order_id": "R004",
+        "service_index": 0,
+        "real_cost": "15000.00",
+        "completed": true
+      }
+    },
+    {
+      "op": "TRY_COMPLETE",
+      "ts": "2025-03-01T09:25:00Z",
+      "data": {
+        "order_id": "R004"
+      }
+    },
+    {
+      "op": "REAUTHORIZE",
+      "ts": "2025-03-01T09:30:00Z",
+      "data": {
+        "order_id": "R004",
+        "new_authorized_amount": "17400.00"
+      }
+    },
+    {
+      "op": "TRY_COMPLETE",
+      "ts": "2025-03-01T09:35:00Z",
+      "data": {
+        "order_id": "R004"
+      }
+    }
+  ]
+}
+
+### ============================================
+### CASO 5: INICIAR SIN AUTORIZACIÓN (SEQUENCE_ERROR)
+### ============================================
+### Escenario: Intentar iniciar reparación sin autorización previa
+### Resultado esperado: Error SEQUENCE_ERROR
+
+POST {{baseUrl}}/commands
+Content-Type: application/json
+
+{
+  "commands": [
+    {
+      "op": "CREATE_ORDER",
+      "ts": "2025-03-01T09:00:00Z",
+      "data": {
+        "order_id": "R005",
+        "customer": "ACME",
+        "vehicle": "ABC-123"
+      }
+    },
+    {
+      "op": "ADD_SERVICE",
+      "ts": "2025-03-01T09:05:00Z",
+      "data": {
+        "order_id": "R005",
+        "service": {
+          "description": "Mantenimiento general",
+          "labor_estimated_cost": "2000.00",
+          "components": []
+        }
+      }
+    },
+    {
+      "op": "SET_STATE_DIAGNOSED",
+      "ts": "2025-03-01T09:10:00Z",
+      "data": {
+        "order_id": "R005"
+      }
+    },
+    {
+      "op": "SET_STATE_IN_PROGRESS",
+      "ts": "2025-03-01T09:15:00Z",
+      "data": {
+        "order_id": "R005"
+      }
+    }
+  ]
+}
+
+### ============================================
+### CASO 6: MODIFICAR TRAS AUTORIZACIÓN (NOT_ALLOWED_AFTER_AUTHORIZATION)
+### ============================================
+### Escenario: Intentar agregar servicio después de autorización
+### Resultado esperado: Error NOT_ALLOWED_AFTER_AUTHORIZATION
+
+POST {{baseUrl}}/commands
+Content-Type: application/json
+
+{
+  "commands": [
+    {
+      "op": "CREATE_ORDER",
+      "ts": "2025-03-01T09:00:00Z",
+      "data": {
+        "order_id": "R006",
+        "customer": "ACME",
+        "vehicle": "ABC-123"
+      }
+    },
+    {
+      "op": "ADD_SERVICE",
+      "ts": "2025-03-01T09:05:00Z",
+      "data": {
+        "order_id": "R006",
+        "service": {
+          "description": "Cambio de aceite",
+          "labor_estimated_cost": "500.00",
+          "components": []
+        }
+      }
+    },
+    {
+      "op": "SET_STATE_DIAGNOSED",
+      "ts": "2025-03-01T09:10:00Z",
+      "data": {
+        "order_id": "R006"
+      }
+    },
+    {
+      "op": "AUTHORIZE",
+      "ts": "2025-03-01T09:11:00Z",
+      "data": {
+        "order_id": "R006"
+      }
+    },
+    {
+      "op": "ADD_SERVICE",
+      "ts": "2025-03-01T09:12:00Z",
+      "data": {
+        "order_id": "R006",
+        "service": {
+          "description": "Servicio adicional",
+          "labor_estimated_cost": "300.00",
+          "components": []
+        }
+      }
+    }
+  ]
+}
+
+### ============================================
+### CASO 7: CANCELAR ORDEN (CANCELLED)
+### ============================================
+### Escenario: Cancelar una orden y verificar que bloquea operaciones
+### Resultado esperado: Estado CANCELLED
+
+POST {{baseUrl}}/commands
+Content-Type: application/json
+
+{
+  "commands": [
+    {
+      "op": "CREATE_ORDER",
+      "ts": "2025-03-01T09:00:00Z",
+      "data": {
+        "order_id": "R007",
+        "customer": "ACME",
+        "vehicle": "ABC-123"
+      }
+    },
+    {
+      "op": "ADD_SERVICE",
+      "ts": "2025-03-01T09:05:00Z",
+      "data": {
+        "order_id": "R007",
+        "service": {
+          "description": "Reparación de transmisión",
+          "labor_estimated_cost": "5000.00",
+          "components": []
+        }
+      }
+    },
+    {
+      "op": "CANCEL",
+      "ts": "2025-03-01T09:10:00Z",
+      "data": {
+        "order_id": "R007",
+        "reason": "Cliente canceló la reparación"
+      }
+    },
+    {
+      "op": "SET_STATE_DIAGNOSED",
+      "ts": "2025-03-01T09:15:00Z",
+      "data": {
+        "order_id": "R007"
+      }
+    }
+  ]
+}
+
+### ============================================
+### CASO 8: SIN SERVICIOS (NO_SERVICES)
+### ============================================
+### Escenario: Intentar autorizar orden sin servicios
+### Resultado esperado: Error NO_SERVICES
+
+POST {{baseUrl}}/commands
+Content-Type: application/json
+
+{
+  "commands": [
+    {
+      "op": "CREATE_ORDER",
+      "ts": "2025-03-01T09:00:00Z",
+      "data": {
+        "order_id": "R008",
+        "customer": "ACME",
+        "vehicle": "ABC-123"
+      }
+    },
+    {
+      "op": "SET_STATE_DIAGNOSED",
+      "ts": "2025-03-01T09:10:00Z",
+      "data": {
+        "order_id": "R008"
+      }
+    },
+    {
+      "op": "AUTHORIZE",
+      "ts": "2025-03-01T09:11:00Z",
+      "data": {
+        "order_id": "R008"
+      }
+    }
+  ]
+}
+
+### ============================================
+### CASO 9: REDONDEO (VALORES CORRECTOS)
+### ============================================
+### Escenario: Verificar redondeo half-even en cálculos monetarios
+### Resultado esperado: Valores correctos con redondeo
+
+POST {{baseUrl}}/commands
+Content-Type: application/json
+
+{
+  "commands": [
+    {
+      "op": "CREATE_ORDER",
+      "ts": "2025-03-01T09:00:00Z",
+      "data": {
+        "order_id": "R009",
+        "customer": "ACME",
+        "vehicle": "ABC-123"
+      }
+    },
+    {
+      "op": "ADD_SERVICE",
+      "ts": "2025-03-01T09:05:00Z",
+      "data": {
+        "order_id": "R009",
+        "service": {
+          "description": "Servicio con redondeo",
+          "labor_estimated_cost": "1000.00",
+          "components": [
+            {
+              "description": "Componente 1",
+              "estimated_cost": "333.33"
+            },
+            {
+              "description": "Componente 2",
+              "estimated_cost": "333.33"
+            },
+            {
+              "description": "Componente 3",
+              "estimated_cost": "333.34"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "op": "SET_STATE_DIAGNOSED",
+      "ts": "2025-03-01T09:10:00Z",
+      "data": {
+        "order_id": "R009"
+      }
+    },
+    {
+      "op": "AUTHORIZE",
+      "ts": "2025-03-01T09:11:00Z",
+      "data": {
+        "order_id": "R009"
+      }
+    }
+  ]
+}
+
+### ============================================
+### CASOS ADICIONALES: MÚLTIPLES SERVICIOS
+### ============================================
+
+### CASO 10: Orden con múltiples servicios
+
+POST {{baseUrl}}/commands
+Content-Type: application/json
+
+{
+  "commands": [
+    {
+      "op": "CREATE_ORDER",
+      "ts": "2025-03-01T09:00:00Z",
+      "data": {
+        "order_id": "R010",
+        "customer": "ACME",
+        "vehicle": "ABC-123"
+      }
+    },
+    {
+      "op": "ADD_SERVICE",
+      "ts": "2025-03-01T09:05:00Z",
+      "data": {
+        "order_id": "R010",
+        "service": {
+          "description": "Cambio de aceite",
+          "labor_estimated_cost": "500.00",
+          "components": [
+            {
+              "description": "Aceite",
+              "estimated_cost": "300.00"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "op": "ADD_SERVICE",
+      "ts": "2025-03-01T09:06:00Z",
+      "data": {
+        "order_id": "R010",
+        "service": {
+          "description": "Rotación de llantas",
+          "labor_estimated_cost": "200.00",
+          "components": []
+        }
+      }
+    },
+    {
+      "op": "SET_STATE_DIAGNOSED",
+      "ts": "2025-03-01T09:10:00Z",
+      "data": {
+        "order_id": "R010"
+      }
+    },
+    {
+      "op": "AUTHORIZE",
+      "ts": "2025-03-01T09:11:00Z",
+      "data": {
+        "order_id": "R010"
+      }
+    }
+  ]
+}
+
+### ============================================
+### CASOS ADICIONALES: COSTOS REALES POR COMPONENTE
+### ============================================
+
+### CASO 11: Establecer costos reales por componente
+
+POST {{baseUrl}}/commands
+Content-Type: application/json
+
+{
+  "commands": [
+    {
+      "op": "CREATE_ORDER",
+      "ts": "2025-03-01T09:00:00Z",
+      "data": {
+        "order_id": "R011",
+        "customer": "ACME",
+        "vehicle": "ABC-123"
+      }
+    },
+    {
+      "op": "ADD_SERVICE",
+      "ts": "2025-03-01T09:05:00Z",
+      "data": {
+        "order_id": "R011",
+        "service": {
+          "description": "Reparación completa",
+          "labor_estimated_cost": "5000.00",
+          "components": [
+            {
+              "description": "Componente A",
+              "estimated_cost": "1000.00"
+            },
+            {
+              "description": "Componente B",
+              "estimated_cost": "2000.00"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "op": "SET_STATE_DIAGNOSED",
+      "ts": "2025-03-01T09:10:00Z",
+      "data": {
+        "order_id": "R011"
+      }
+    },
+    {
+      "op": "AUTHORIZE",
+      "ts": "2025-03-01T09:11:00Z",
+      "data": {
+        "order_id": "R011"
+      }
+    },
+    {
+      "op": "SET_STATE_IN_PROGRESS",
+      "ts": "2025-03-01T09:15:00Z",
+      "data": {
+        "order_id": "R011"
+      }
+    },
+    {
+      "op": "SET_REAL_COST",
+      "ts": "2025-03-01T09:20:00Z",
+      "data": {
+        "order_id": "R011",
+        "service_index": 0,
+        "real_cost": "5200.00",
+        "completed": true,
+        "components_real": {
+          "0": "1100.00",
+          "1": "2100.00"
+        }
+      }
+    }
+  ]
+}
+
+### ============================================
+### ENDPOINTS INDIVIDUALES (ALTERNATIVA)
+### ============================================
+
+### Crear orden individual
+POST {{baseUrl}}/orders
+Content-Type: application/json
+
+{
+  "order_id": "R012",
+  "customer": "ACME",
+  "vehicle": "XYZ-789"
+}
+
+### Obtener orden por ID
+GET {{baseUrl}}/orders/R012
+
+### Agregar servicio individual
+POST {{baseUrl}}/orders/R012/services
+Content-Type: application/json
+
+{
+  "description": "Mantenimiento preventivo",
+  "labor_estimated_cost": "1500.00",
+  "components": [
+    {
+      "description": "Filtro de aire",
+      "estimated_cost": "250.00"
+    }
+  ]
+}
+
+### Establecer estado diagnosticado
+POST {{baseUrl}}/orders/R012/set_state
+Content-Type: application/json
+
+{
+  "state": "DIAGNOSED"
+}
+
+### Autorizar orden
+POST {{baseUrl}}/orders/R012/authorize
+Content-Type: application/json
+
+{}
+
+### Establecer estado en progreso
+POST {{baseUrl}}/orders/R012/set_state
+Content-Type: application/json
+
+{
+  "state": "IN_PROGRESS"
+}
+
+### Establecer costo real
+POST {{baseUrl}}/orders/R012/set_real_cost
+Content-Type: application/json
+
+{
+  "service_index": 0,
+  "real_cost": "1750.00",
+  "completed": true
+}
+
+### Intentar completar
+POST {{baseUrl}}/orders/R012/try_complete
+
+### Reautorizar orden
+POST {{baseUrl}}/orders/R012/reauthorize
+Content-Type: application/json
+
+{
+  "new_authorized_amount": "2000.00"
+}
+
+### Entregar orden
+POST {{baseUrl}}/orders/R012/deliver
+
+### Cancelar orden
+POST {{baseUrl}}/orders/R012/cancel
+Content-Type: application/json
+
+{
+  "reason": "Cliente no desea continuar"
+}
+
+### ============================================
+### CONSULTAS Y VERIFICACIONES
+### ============================================
+
+### Obtener todas las órdenes (si existe endpoint)
+GET {{baseUrl}}/orders
+
+### Health check detallado
+GET {{baseUrl}}/health
+
