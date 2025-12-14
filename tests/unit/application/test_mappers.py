@@ -1,5 +1,5 @@
 from decimal import Decimal
-from datetime import datetime
+from datetime import datetime, timezone
 from app.application.mappers import (
     json_a_crear_orden_dto, json_a_agregar_servicio_dto,
     json_a_establecer_estado_diagnosticado_dto, json_a_autorizar_dto,
@@ -167,21 +167,21 @@ def test_servicio_a_dto():
 
 
 def test_evento_a_dto():
-    evento = Evento("CREATED", datetime.utcnow(), {})
+    evento = Evento("CREATED", datetime.now(timezone.utc), {})
     dto = evento_a_dto(evento, "ORD-001")
     assert dto.order_id == "ORD-001"
     assert dto.type == "CREATED"
 
 
 def test_orden_a_dto():
-    orden = Orden("ORD-001", "Juan", "Auto", datetime.utcnow())
+    orden = Orden("ORD-001", "Juan", "Auto", datetime.now(timezone.utc))
     orden.estado = EstadoOrden.AUTHORIZED
     orden.monto_autorizado = Decimal("1160.00")
     orden.version_autorizacion = 1
     
     servicio = Servicio("Servicio", Decimal("1000.00"))
     orden.servicios.append(servicio)
-    orden.eventos.append(Evento("CREATED", datetime.utcnow(), {}))
+    orden.eventos.append(Evento("CREATED", datetime.now(timezone.utc), {}))
     
     dto = orden_a_dto(orden)
     assert dto.order_id == "ORD-001"
@@ -195,7 +195,7 @@ def test_orden_a_dto():
 
 
 def test_orden_a_dto_sin_monto_autorizado():
-    orden = Orden("ORD-001", "Juan", "Auto", datetime.utcnow())
+    orden = Orden("ORD-001", "Juan", "Auto", datetime.now(timezone.utc))
     dto = orden_a_dto(orden)
     assert dto.authorized_amount is None
 
@@ -213,7 +213,7 @@ def test_vehiculo_a_dto():
     assert dto.descripcion == "ABC-123"
     assert dto.marca == "Toyota"
     assert dto.modelo == "Corolla"
-    assert dto.año == 2020
+    assert dto.anio == 2020
     assert dto.id_cliente == "CLI-001"
     assert dto.cliente_nombre == "Juan Pérez"
 

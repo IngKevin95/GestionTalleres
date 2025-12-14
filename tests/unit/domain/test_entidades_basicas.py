@@ -26,13 +26,13 @@ def test_vehiculo_con_todos_los_campos():
         "CLI-001",
         marca="Toyota",
         modelo="Corolla",
-        año=2020,
+        anio=2020,
         id_vehiculo="VEH-001"
     )
     assert vehiculo.descripcion == "ABC-123"
     assert vehiculo.marca == "Toyota"
     assert vehiculo.modelo == "Corolla"
-    assert vehiculo.año == 2020
+    assert vehiculo.anio == 2020
     assert vehiculo.id_vehiculo == "VEH-001"
 
 
@@ -40,5 +40,5 @@ def test_vehiculo_sin_campos_opcionales():
     vehiculo = Vehiculo("XYZ-789", "CLI-002")
     assert vehiculo.marca is None
     assert vehiculo.modelo is None
-    assert vehiculo.año is None
+    assert vehiculo.anio is None
 

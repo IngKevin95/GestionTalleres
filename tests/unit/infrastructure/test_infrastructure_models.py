@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from app.infrastructure.models.orden_model import OrdenModel
 from app.infrastructure.models.cliente_model import ClienteModel
 from app.infrastructure.models.vehiculo_model import VehiculoModel
@@ -16,7 +16,7 @@ def test_orden_model():
         monto_autorizado="1000.00",
         version_autorizacion=1,
         total_real="0.00",
-        fecha_creacion=datetime.utcnow()
+        fecha_creacion=datetime.now(timezone.utc)
     )
     assert modelo.id_orden == "ORD-001"
     assert modelo.estado == "CREATED"
@@ -39,7 +39,7 @@ def test_vehiculo_model():
         descripcion="ABC-123",
         marca="Toyota",
         modelo="Corolla",
-        año=2020
+        anio=2020
     )
     assert modelo.id_vehiculo == "VEH-001"
     assert modelo.descripcion == "ABC-123"
@@ -78,7 +78,7 @@ def test_evento_model():
     modelo = EventoModel(
         id_orden="ORD-001",
         tipo="CREATED",
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.now(timezone.utc),
         metadatos_json=json.dumps({"key": "value"})
     )
     assert modelo.tipo == "CREATED"
