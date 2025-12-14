@@ -22,6 +22,7 @@ class RepositorioVehiculoSQL:
                 marca=modelo.marca,
                 modelo=modelo.modelo,
                 anio=modelo.anio,
+                kilometraje=modelo.kilometraje,
                 id_vehiculo=modelo.id_vehiculo
             )
         
@@ -31,6 +32,7 @@ class RepositorioVehiculoSQL:
             marca=vehiculo.marca,
             modelo=vehiculo.modelo,
             anio=vehiculo.anio,
+            kilometraje=vehiculo.kilometraje,
             id_cliente=vehiculo.id_cliente
         )
         self.sesion.add(modelo)
@@ -50,6 +52,7 @@ class RepositorioVehiculoSQL:
             marca=m.marca,
             modelo=m.modelo,
             anio=m.anio,
+            kilometraje=m.kilometraje,
             id_vehiculo=m.id_vehiculo
         )
     
@@ -89,6 +92,7 @@ class RepositorioVehiculoSQL:
                 m.marca = vehiculo.marca
                 m.modelo = vehiculo.modelo
                 m.anio = vehiculo.anio
+                m.kilometraje = vehiculo.kilometraje
                 m.id_cliente = vehiculo.id_cliente
             else:
                 nuevo = VehiculoModel(
@@ -97,6 +101,7 @@ class RepositorioVehiculoSQL:
                     marca=vehiculo.marca,
                     modelo=vehiculo.modelo,
                     anio=vehiculo.anio,
+                    kilometraje=vehiculo.kilometraje,
                     id_cliente=vehiculo.id_cliente
                 )
                 self.sesion.add(nuevo)
@@ -106,6 +111,7 @@ class RepositorioVehiculoSQL:
                 marca=vehiculo.marca,
                 modelo=vehiculo.modelo,
                 anio=vehiculo.anio,
+                kilometraje=vehiculo.kilometraje,
                 id_cliente=vehiculo.id_cliente
             )
             self.sesion.add(nuevo)

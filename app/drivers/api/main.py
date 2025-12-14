@@ -94,48 +94,56 @@ app.include_router(router)
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    logger.info(f"Exception handler de validación llamado para {request.method} {request.url.path}")
-    
     body_json = {}
     try:
-        if hasattr(request.state, "body_captured"):
-            body_json = request.state.body_captured
-            logger.debug("Body capturado desde request.state")
-        else:
-            logger.debug("Intentando leer body desde request")
+        body = await request.body()
+        if body:
+            body_str = body.decode("utf-8")
             try:
-                body = await request.body()
-                body_str = body.decode("utf-8") if body else "{}"
-                try:
-                    body_json = json.loads(body_str)
-                except Exception:
-                    body_json = {"raw": body_str[:1000]}
-            except Exception as e:
-                logger.debug(f"No se pudo leer body: {str(e)}")
-                body_json = {}
-    except Exception as e:
-        logger.debug(f"Error al obtener body: {str(e)}")
-        body_json = {}
+                body_json = json.loads(body_str)
+            except Exception:
+                body_json = {"raw": body_str[:1000]}
+    except Exception:
+        pass
     
     error_detail = exc.errors()
-    error_response = {"detail": error_detail}
-    if body_json:
-        error_response["body"] = body_json
+    
+    mensajes_error = []
+    for error in error_detail:
+        campo = " -> ".join(str(loc) for loc in error.get("loc", []))
+        tipo_error = error.get("type", "unknown")
+        mensaje = error.get("msg", "Error de validación")
+        
+        mensaje_legible = f"Campo '{campo}': {mensaje}"
+        if tipo_error == "string_too_short":
+            mensaje_legible = f"Campo '{campo}' es requerido y no puede estar vacío"
+        elif tipo_error == "missing":
+            mensaje_legible = f"Campo '{campo}' es requerido"
+        elif tipo_error == "value_error":
+            mensaje_legible = f"Campo '{campo}' tiene un valor inválido: {mensaje}"
+        elif tipo_error == "type_error":
+            mensaje_legible = f"Campo '{campo}' tiene un tipo incorrecto. {mensaje}"
+        
+        mensajes_error.append(mensaje_legible)
+    
+    error_response = {
+        "detail": mensajes_error,
+        "errors": error_detail,
+        "message": f"Error de validación: {len(error_detail)} campo(s) con problemas"
+    }
     
     logger.error(
-        f"Error de validación en {request.method} {request.url.path}: {len(error_detail)} errores de validación",
+        f"ERROR DE VALIDACIÓN {request.method} {request.url.path} - {len(error_detail)} errores",
         extra={
             "method": request.method,
             "path": str(request.url.path),
             "request_body": body_json,
             "validation_errors": error_detail,
-            "error_type": "RequestValidationError",
-            "response_body": error_response
-        },
-        exc_info=True
+            "error_messages": mensajes_error,
+            "error_type": "RequestValidationError"
+        }
     )
     
-    logger.info(f"Retornando respuesta 422 para {request.method} {request.url.path}")
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content=error_response
@@ -218,10 +226,18 @@ async def response_validation_error_handler(request: Request, exc: ResponseValid
 
 @app.exception_handler(SQLAlchemyError)
 async def sqlalchemy_error_handler(request: Request, exc: SQLAlchemyError):
-    logger.error(f"Error de base de datos: {str(exc)}", exc_info=True)
+    error_msg = str(exc)
+    logger.error(f"Error de base de datos: {error_msg}", exc_info=True)
+    
+    detail_msg = "Error en la base de datos. Intente más tarde."
+    if "does not exist" in error_msg or "no existe" in error_msg.lower():
+        detail_msg = f"Error en la estructura de la base de datos: {error_msg}"
+    elif "connection" in error_msg.lower() or "connect" in error_msg.lower():
+        detail_msg = "Error de conexión a la base de datos. Verifique la configuración."
+    
     return JSONResponse(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-        content={"detail": "Error en la base de datos. Intente más tarde."}
+        content={"detail": detail_msg, "error_type": "database_error"}
     )
 
 

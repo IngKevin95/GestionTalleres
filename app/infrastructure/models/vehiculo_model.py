@@ -11,6 +11,7 @@ class VehiculoModel(Base):
     marca = Column(String, nullable=True)
     modelo = Column(String, nullable=True)
     anio = Column(Integer, nullable=True)
+    kilometraje = Column(Integer, nullable=True)
     id_cliente = Column(Integer, ForeignKey("clientes.id_cliente", ondelete="CASCADE"), nullable=False)
     
     cliente = relationship("ClienteModel", backref="vehiculos")

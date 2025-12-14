@@ -5,6 +5,22 @@ from pathlib import Path
 from typing import Optional
 
 
+class RotatingFileHandlerSeguro(logging.handlers.TimedRotatingFileHandler):
+    def doRollover(self):
+        try:
+            super().doRollover()
+        except (PermissionError, OSError):
+            pass
+
+
+class RotatingFileHandlerSizeSeguro(logging.handlers.RotatingFileHandler):
+    def doRollover(self):
+        try:
+            super().doRollover()
+        except (PermissionError, OSError):
+            pass
+
+
 def configurar_logging():
     nivel = os.getenv("LOG_LEVEL", "INFO").upper()
     formato = os.getenv("LOG_FORMAT", "text").lower()
@@ -65,21 +81,21 @@ def configurar_logging():
         logger_raiz.removeHandler(handler)
     
     if rotacion == "time":
-        handler_general = logging.handlers.TimedRotatingFileHandler(
+        handler_general = RotatingFileHandlerSeguro(
             os.path.join(directorio_logs, "app.log"),
             when="midnight",
             interval=1,
             backupCount=backup_count,
             encoding="utf-8"
         )
-        handler_errores = logging.handlers.TimedRotatingFileHandler(
+        handler_errores = RotatingFileHandlerSeguro(
             os.path.join(directorio_logs, "errors.log"),
             when="midnight",
             interval=1,
             backupCount=backup_count,
             encoding="utf-8"
         )
-        handler_requests = logging.handlers.TimedRotatingFileHandler(
+        handler_requests = RotatingFileHandlerSeguro(
             os.path.join(directorio_logs, "requests.log"),
             when="midnight",
             interval=1,
@@ -87,19 +103,19 @@ def configurar_logging():
             encoding="utf-8"
         )
     elif rotacion == "size":
-        handler_general = logging.handlers.RotatingFileHandler(
+        handler_general = RotatingFileHandlerSizeSeguro(
             os.path.join(directorio_logs, "app.log"),
             maxBytes=max_bytes,
             backupCount=backup_count,
             encoding="utf-8"
         )
-        handler_errores = logging.handlers.RotatingFileHandler(
+        handler_errores = RotatingFileHandlerSizeSeguro(
             os.path.join(directorio_logs, "errors.log"),
             maxBytes=max_bytes,
             backupCount=backup_count,
             encoding="utf-8"
         )
-        handler_requests = logging.handlers.RotatingFileHandler(
+        handler_requests = RotatingFileHandlerSizeSeguro(
             os.path.join(directorio_logs, "requests.log"),
             maxBytes=max_bytes,
             backupCount=backup_count,
@@ -127,13 +143,24 @@ def configurar_logging():
     handler_errores.setFormatter(formato_log)
     handler_requests.setFormatter(formato_log)
     
+    handler_general.flush = lambda: None
+    handler_errores.flush = lambda: None
+    handler_requests.flush = lambda: None
+    
     logger_raiz.addHandler(handler_general)
     logger_raiz.addHandler(handler_errores)
     
     logger_requests = logging.getLogger("app.drivers.api.middleware")
     logger_requests.addHandler(handler_requests)
+    logger_requests.addHandler(handler_general)
     logger_requests.setLevel(logging.INFO)
     logger_requests.propagate = False
+    
+    logger_errores_no_controlados = logging.getLogger("app.drivers.api.errors")
+    logger_errores_no_controlados.addHandler(handler_errores)
+    logger_errores_no_controlados.addHandler(handler_general)
+    logger_errores_no_controlados.setLevel(logging.ERROR)
+    logger_errores_no_controlados.propagate = False
     
     if log_to_console:
         handler_consola = logging.StreamHandler()

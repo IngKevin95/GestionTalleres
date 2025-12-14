@@ -16,16 +16,29 @@ from .dtos import (
 ZULU_TO_UTC_OFFSET = '+00:00'
 
 def json_a_crear_orden_dto(json_data: dict, ts_comando: Optional[str] = None) -> CrearOrdenDTO:
-    ts = ts_comando or json_data.get("ts") or ahora().isoformat()
-    ts_normalizado = ts.replace('Z', ZULU_TO_UTC_OFFSET)
     order_id = json_data.get("order_id", "")
-    if not order_id:
-        raise ValueError("order_id es requerido")
+    if not order_id or not str(order_id).strip():
+        raise ValueError("order_id es requerido y no puede estar vacío")
+    
+    customer = json_data.get("customer", "")
+    if not customer or not str(customer).strip():
+        raise ValueError("customer es requerido y no puede estar vacío")
+    
+    vehicle = json_data.get("vehicle", "")
+    if not vehicle or not str(vehicle).strip():
+        raise ValueError("vehicle es requerido y no puede estar vacío")
+    
+    ts = ts_comando or json_data.get("ts")
+    if not ts or (isinstance(ts, str) and not ts.strip()):
+        ts = ahora().isoformat()
+    
+    ts_normalizado = str(ts).replace('Z', ZULU_TO_UTC_OFFSET)
+    
     return CrearOrdenDTO(
-        cliente=json_data.get("customer", ""),
-        vehiculo=json_data.get("vehicle", ""),
+        cliente=str(customer).strip(),
+        vehiculo=str(vehicle).strip(),
         timestamp=datetime.fromisoformat(ts_normalizado),
-        order_id=str(order_id)
+        order_id=str(order_id).strip()
     )
 
 
@@ -193,7 +206,14 @@ def orden_a_dto(orden: Orden) -> OrdenDTO:
 def cliente_a_dto(c: Cliente) -> ClienteDTO:
     if c.id_cliente is None:
         raise ValueError("Cliente debe tener id_cliente asignado")
-    return ClienteDTO(id_cliente=c.id_cliente, nombre=c.nombre)
+    return ClienteDTO(
+        id_cliente=c.id_cliente,
+        nombre=c.nombre,
+        identificacion=c.identificacion,
+        correo=c.correo,
+        direccion=c.direccion,
+        celular=c.celular
+    )
 
 
 def vehiculo_a_dto(v: Vehiculo, cliente_nombre: Optional[str] = None) -> VehiculoDTO:
@@ -205,6 +225,7 @@ def vehiculo_a_dto(v: Vehiculo, cliente_nombre: Optional[str] = None) -> Vehicul
         marca=v.marca,
         modelo=v.modelo,
         anio=v.anio,
+        kilometraje=v.kilometraje,
         id_cliente=v.id_cliente,
         cliente_nombre=cliente_nombre
     )

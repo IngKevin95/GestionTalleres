@@ -1,7 +1,7 @@
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Union
 from datetime import datetime
 from decimal import Decimal
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 DESC_NOMBRE_CLIENTE = "Nombre del cliente"
 DESC_DESCRIPCION_VEHICULO = "Descripción del vehículo"
@@ -155,10 +155,44 @@ class SetStateRequest(BaseModel):
 
 
 class CreateOrderRequest(BaseModel):
-    customer: str
-    vehicle: str
-    order_id: str
-    ts: Optional[datetime] = None
+    customer: str = Field(..., min_length=1, max_length=500, description="Nombre del cliente")
+    vehicle: str = Field(..., min_length=1, max_length=500, description="Descripción del vehículo")
+    order_id: str = Field(..., min_length=1, max_length=100, description="ID de la orden")
+    ts: Optional[str] = Field(None, description="Timestamp opcional en formato ISO. Si se envía como string vacío, se ignora.")
+    
+    @field_validator('customer')
+    @classmethod
+    def validate_customer(cls, v):
+        if not v or not str(v).strip():
+            raise ValueError("customer es requerido y no puede estar vacío")
+        return str(v).strip()
+    
+    @field_validator('vehicle')
+    @classmethod
+    def validate_vehicle(cls, v):
+        if not v or not str(v).strip():
+            raise ValueError("vehicle es requerido y no puede estar vacío")
+        return str(v).strip()
+    
+    @field_validator('order_id')
+    @classmethod
+    def validate_order_id(cls, v):
+        if not v or not str(v).strip():
+            raise ValueError("order_id es requerido y no puede estar vacío")
+        return str(v).strip()
+    
+    @field_validator('ts', mode='before')
+    @classmethod
+    def validate_ts(cls, v):
+        if v is None:
+            return None
+        if isinstance(v, datetime):
+            return v.isoformat()
+        if isinstance(v, str):
+            if not v or not v.strip():
+                return None
+            return v.strip()
+        return v
 
 
 class AddServiceRequest(BaseModel):
@@ -192,14 +226,26 @@ class CancelRequest(BaseModel):
 class ClienteResponse(BaseModel):
     id_cliente: int
     nombre: str
+    identificacion: Optional[str] = None
+    correo: Optional[str] = None
+    direccion: Optional[str] = None
+    celular: Optional[str] = None
 
 
 class CreateClienteRequest(BaseModel):
     nombre: str
+    identificacion: Optional[str] = None
+    correo: Optional[str] = None
+    direccion: Optional[str] = None
+    celular: Optional[str] = None
 
 
 class UpdateClienteRequest(BaseModel):
-    nombre: str
+    nombre: Optional[str] = None
+    identificacion: Optional[str] = None
+    correo: Optional[str] = None
+    direccion: Optional[str] = None
+    celular: Optional[str] = None
 
 
 class ListClientesResponse(BaseModel):
@@ -212,6 +258,7 @@ class VehiculoResponse(BaseModel):
     marca: Optional[str] = None
     modelo: Optional[str] = None
     anio: Optional[int] = None
+    kilometraje: Optional[int] = None
     id_cliente: int
     cliente_nombre: Optional[str] = None
 
@@ -222,6 +269,7 @@ class CreateVehiculoRequest(BaseModel):
     marca: Optional[str] = None
     modelo: Optional[str] = None
     anio: Optional[int] = None
+    kilometraje: Optional[int] = None
 
 
 class UpdateVehiculoRequest(BaseModel):
@@ -230,6 +278,7 @@ class UpdateVehiculoRequest(BaseModel):
     marca: Optional[str] = None
     modelo: Optional[str] = None
     anio: Optional[int] = None
+    kilometraje: Optional[int] = None
 
 
 class ListVehiculosResponse(BaseModel):

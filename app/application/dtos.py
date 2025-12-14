@@ -103,6 +103,10 @@ class ErrorDTO(BaseModel):
 class ClienteDTO(BaseModel):
     id_cliente: int
     nombre: str
+    identificacion: Optional[str] = None
+    correo: Optional[str] = None
+    direccion: Optional[str] = None
+    celular: Optional[str] = None
 
 
 class VehiculoDTO(BaseModel):
@@ -111,12 +115,17 @@ class VehiculoDTO(BaseModel):
     marca: Optional[str] = None
     modelo: Optional[str] = None
     anio: Optional[int] = None
+    kilometraje: Optional[int] = None
     id_cliente: int
     cliente_nombre: Optional[str] = None
 
 
 class CrearClienteDTO(BaseModel):
     nombre: str
+    identificacion: Optional[str] = None
+    correo: Optional[str] = None
+    direccion: Optional[str] = None
+    celular: Optional[str] = None
 
 
 class CrearVehiculoDTO(BaseModel):
@@ -125,4 +134,5 @@ class CrearVehiculoDTO(BaseModel):
     marca: Optional[str] = None
     modelo: Optional[str] = None
     anio: Optional[int] = None
+    kilometraje: Optional[int] = None
 
