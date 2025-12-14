@@ -158,10 +158,10 @@ def _procesar_comando_individual(
                 orders_dict[order_id] = _formatear_orden_respuesta(orden_dto)
         
         if error_dto:
-            errors.append(error_dto.dict())
+            errors.append(error_dto.model_dump())
             logger.warning(f"Comando {idx} ({op}): {error_dto.message}")
         
-        events.extend([e.dict() for e in eventos_dto])
+        events.extend([e.model_dump() for e in eventos_dto])
         
     except Exception:
         logger.error(f"Error procesando comando {idx}: {op}", exc_info=True)

@@ -6,7 +6,7 @@ def obtener_zona_horaria():
     tz = os.getenv("TIMEZONE", "America/Bogota")
     try:
         return ZoneInfo(tz)
-    except:
+    except Exception:
         return ZoneInfo("America/Bogota")
 
 def ahora():

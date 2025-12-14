@@ -31,10 +31,15 @@ class AgregarServicio:
     def _crear_componentes(self, componentes_data):
         comps = []
         for comp_data in componentes_data:
-            # TODO: validar que costo_estimado sea positivo
+            costo_estimado = a_decimal(comp_data.get("estimated_cost", 0))
+            if costo_estimado < 0:
+                raise ErrorDominio(
+                    CodigoError.INVALID_AMOUNT,
+                    f"El costo estimado del componente debe ser positivo, se recibió: {costo_estimado}"
+                )
             comps.append(Componente(
                 descripcion=comp_data.get("description", ""),
-                costo_estimado=a_decimal(comp_data.get("estimated_cost", 0))
+                costo_estimado=costo_estimado
             ))
         return comps
 
