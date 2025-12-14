@@ -9,7 +9,7 @@ from .dtos import (
     AutorizarDTO, EstablecerEstadoEnProcesoTDTO, EstablecerCostoRealDTO,
     IntentarCompletarDTO, ReautorizarDTO, EntregarDTO, CancelarDTO,
     OrdenDTO, ServicioDTO, ComponenteDTO, EventoDTO,
-    ClienteDTO, VehiculoDTO
+    ClienteDTO, VehiculoDTO, CustomerIdentifierDTO, VehicleIdentifierDTO
 )
 
 
@@ -20,13 +20,40 @@ def json_a_crear_orden_dto(json_data: dict, ts_comando: Optional[str] = None) ->
     if not order_id or not str(order_id).strip():
         raise ValueError("order_id es requerido y no puede estar vacío")
     
-    customer = json_data.get("customer", "")
-    if not customer or not str(customer).strip():
+    customer_data = json_data.get("customer")
+    if not customer_data:
         raise ValueError("customer es requerido y no puede estar vacío")
     
-    vehicle = json_data.get("vehicle", "")
-    if not vehicle or not str(vehicle).strip():
+    if isinstance(customer_data, str):
+        customer_identifier = CustomerIdentifierDTO(nombre=customer_data.strip())
+    elif isinstance(customer_data, dict):
+        customer_identifier = CustomerIdentifierDTO(
+            id_cliente=customer_data.get("id_cliente"),
+            identificacion=customer_data.get("identificacion"),
+            nombre=customer_data.get("nombre")
+        )
+        criterios = sum([1 for v in [customer_identifier.id_cliente, customer_identifier.identificacion, customer_identifier.nombre] if v is not None])
+        if criterios != 1:
+            raise ValueError("customer debe tener exactamente uno de: id_cliente, identificacion, o nombre")
+    else:
+        raise ValueError("customer debe ser un string o un objeto con id_cliente, identificacion o nombre")
+    
+    vehicle_data = json_data.get("vehicle")
+    if not vehicle_data:
         raise ValueError("vehicle es requerido y no puede estar vacío")
+    
+    if isinstance(vehicle_data, str):
+        vehicle_identifier = VehicleIdentifierDTO(placa=vehicle_data.strip())
+    elif isinstance(vehicle_data, dict):
+        vehicle_identifier = VehicleIdentifierDTO(
+            id_vehiculo=vehicle_data.get("id_vehiculo"),
+            placa=vehicle_data.get("placa")
+        )
+        criterios = sum([1 for v in [vehicle_identifier.id_vehiculo, vehicle_identifier.placa] if v is not None])
+        if criterios != 1:
+            raise ValueError("vehicle debe tener exactamente uno de: id_vehiculo o placa")
+    else:
+        raise ValueError("vehicle debe ser un string (placa) o un objeto con id_vehiculo o placa")
     
     ts = ts_comando or json_data.get("ts")
     if not ts or (isinstance(ts, str) and not ts.strip()):
@@ -34,11 +61,34 @@ def json_a_crear_orden_dto(json_data: dict, ts_comando: Optional[str] = None) ->
     
     ts_normalizado = str(ts).replace('Z', ZULU_TO_UTC_OFFSET)
     
+    customer_extra = None
+    if isinstance(customer_data, dict):
+        customer_extra = {
+            "correo": customer_data.get("correo"),
+            "direccion": customer_data.get("direccion"),
+            "celular": customer_data.get("celular")
+        }
+        if all(v is None for v in customer_extra.values()):
+            customer_extra = None
+    
+    vehicle_extra = None
+    if isinstance(vehicle_data, dict):
+        vehicle_extra = {
+            "marca": vehicle_data.get("marca"),
+            "modelo": vehicle_data.get("modelo"),
+            "anio": vehicle_data.get("anio"),
+            "kilometraje": vehicle_data.get("kilometraje")
+        }
+        if all(v is None for v in vehicle_extra.values()):
+            vehicle_extra = None
+    
     return CrearOrdenDTO(
-        cliente=str(customer).strip(),
-        vehiculo=str(vehicle).strip(),
+        customer=customer_identifier,
+        vehicle=vehicle_identifier,
         timestamp=datetime.fromisoformat(ts_normalizado),
-        order_id=str(order_id).strip()
+        order_id=str(order_id).strip(),
+        customer_extra=customer_extra,
+        vehicle_extra=vehicle_extra
     )
 
 
@@ -221,7 +271,7 @@ def vehiculo_a_dto(v: Vehiculo, cliente_nombre: Optional[str] = None) -> Vehicul
         raise ValueError("Vehículo debe tener id_vehiculo e id_cliente asignados")
     return VehiculoDTO(
         id_vehiculo=v.id_vehiculo,
-        descripcion=v.descripcion,
+        placa=v.placa,
         marca=v.marca,
         modelo=v.modelo,
         anio=v.anio,

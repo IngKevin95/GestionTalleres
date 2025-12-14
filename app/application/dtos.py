@@ -4,11 +4,24 @@ from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
 
 
+class CustomerIdentifierDTO(BaseModel):
+    id_cliente: Optional[int] = None
+    identificacion: Optional[str] = None
+    nombre: Optional[str] = None
+
+
+class VehicleIdentifierDTO(BaseModel):
+    id_vehiculo: Optional[int] = None
+    placa: Optional[str] = None
+
+
 class CrearOrdenDTO(BaseModel):
-    cliente: str
-    vehiculo: str
+    customer: CustomerIdentifierDTO
+    vehicle: VehicleIdentifierDTO
     timestamp: datetime
     order_id: str
+    customer_extra: Optional[Dict[str, Any]] = None
+    vehicle_extra: Optional[Dict[str, Any]] = None
 
 
 class AgregarServicioDTO(BaseModel):
@@ -111,7 +124,7 @@ class ClienteDTO(BaseModel):
 
 class VehiculoDTO(BaseModel):
     id_vehiculo: int
-    descripcion: str
+    placa: str
     marca: Optional[str] = None
     modelo: Optional[str] = None
     anio: Optional[int] = None
@@ -129,7 +142,7 @@ class CrearClienteDTO(BaseModel):
 
 
 class CrearVehiculoDTO(BaseModel):
-    descripcion: str
+    placa: str
     id_cliente: int
     marca: Optional[str] = None
     modelo: Optional[str] = None

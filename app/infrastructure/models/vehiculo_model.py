@@ -7,7 +7,7 @@ class VehiculoModel(Base):
     __tablename__ = "vehiculos"
     
     id_vehiculo = Column(Integer, primary_key=True, autoincrement=True)
-    descripcion = Column(String, nullable=False)
+    placa = Column(String, nullable=False, unique=True)
     marca = Column(String, nullable=True)
     modelo = Column(String, nullable=True)
     anio = Column(Integer, nullable=True)

@@ -45,7 +45,7 @@ class ActionService:
             match op:
                 case "CREATE_ORDER":
                     dto = json_a_crear_orden_dto(data, ts_comando)
-                    action = CrearOrden(self.repo, self.auditoria)
+                    action = CrearOrden(self.repo, self.auditoria, None, None)
                     orden_dto = action.ejecutar(dto)
                     logger.info(f"Orden creada exitosamente: {orden_dto.order_id}")
                 

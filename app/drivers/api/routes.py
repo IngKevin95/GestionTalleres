@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, status, Path, Body
+from fastapi import APIRouter, HTTPException, Depends, status, Path, Body, Query
 from typing import List, Dict, Any, Optional
 
 from ...application.action_service import ActionService
@@ -14,7 +14,7 @@ from .schemas import (
     CreateOrderRequest, AddServiceRequest, SetRealCostRequest, AuthorizeRequest,
     ReauthorizeRequest, CancelRequest, ClienteResponse, CreateClienteRequest,
     UpdateClienteRequest, ListClientesResponse, VehiculoResponse, CreateVehiculoRequest,
-    UpdateVehiculoRequest, ListVehiculosResponse
+    UpdateVehiculoRequest, ListVehiculosResponse, CustomerIdentifier, VehicleIdentifier
 )
 from ...infrastructure.logging_config import obtener_logger
 
@@ -25,6 +25,53 @@ router = APIRouter()
 
 DESC_ORDER_ID = "ID de la orden"
 DESC_CUSTOMER_ID = "ID del cliente"
+
+
+def obtener_cliente_por_criterio(customer: CustomerIdentifier, repo: RepositorioClienteSQL) -> Cliente:
+    criterios = sum([1 for v in [customer.id_cliente, customer.identificacion, customer.nombre] if v is not None])
+    if criterios != 1:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Debe proporcionar exactamente uno de: id_cliente, identificacion o nombre"
+        )
+    
+    cliente = repo.buscar_por_criterio(
+        id_cliente=customer.id_cliente,
+        identificacion=customer.identificacion,
+        nombre=customer.nombre
+    )
+    
+    if not cliente:
+        criterio_usado = customer.id_cliente or customer.identificacion or customer.nombre
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Cliente no encontrado con criterio: {criterio_usado}"
+        )
+    
+    return cliente
+
+
+def obtener_vehiculo_por_criterio(vehicle: VehicleIdentifier, repo: RepositorioVehiculoSQL) -> Vehiculo:
+    criterios = sum([1 for v in [vehicle.id_vehiculo, vehicle.placa] if v is not None])
+    if criterios != 1:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Debe proporcionar exactamente uno de: id_vehiculo o placa"
+        )
+    
+    vehiculo = repo.buscar_por_criterio(
+        id_vehiculo=vehicle.id_vehiculo,
+        placa=vehicle.placa
+    )
+    
+    if not vehiculo:
+        criterio_usado = vehicle.id_vehiculo or vehicle.placa
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Vehículo no encontrado con criterio: {criterio_usado}"
+        )
+    
+    return vehiculo
 
 @router.get(
     "/",
@@ -269,7 +316,9 @@ def procesar_comandos(
 )
 def crear_orden(
     request: CreateOrderRequest,
-    action_service: ActionService = Depends(obtener_action_service)
+    action_service: ActionService = Depends(obtener_action_service),
+    repo_cliente: RepositorioClienteSQL = Depends(obtener_repositorio_cliente),
+    repo_vehiculo: RepositorioVehiculoSQL = Depends(obtener_repositorio_vehiculo)
 ):
     try:
         data = {
@@ -280,7 +329,7 @@ def crear_orden(
         }
         dto = json_a_crear_orden_dto(data)
         from ...application.acciones.orden import CrearOrden
-        accion = CrearOrden(action_service.repo, action_service.auditoria)
+        accion = CrearOrden(action_service.repo, action_service.auditoria, repo_cliente, repo_vehiculo)
         return accion.ejecutar(dto)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -643,11 +692,11 @@ def listar_clientes(
 
 
 @router.get(
-    "/customers/{customer_id}",
+    "/customers",
     response_model=ClienteResponse,
     tags=["Clientes"],
-    summary="Obtener cliente por ID",
-    description="Obtiene los datos de un cliente específico.",
+    summary="Obtener cliente",
+    description="Obtiene los datos de un cliente específico por ID, identificación o nombre.",
     response_description="Datos del cliente",
     responses={
         200: {
@@ -659,12 +708,13 @@ def listar_clientes(
     }
 )
 def obtener_cliente(
-    customer_id: str = Path(..., description=DESC_CUSTOMER_ID),
+    id_cliente: Optional[int] = Query(None, description="ID del cliente"),
+    identificacion: Optional[str] = Query(None, description="Identificación del cliente"),
+    nombre: Optional[str] = Query(None, description="Nombre del cliente"),
     repo_cliente: RepositorioClienteSQL = Depends(obtener_repositorio_cliente)
 ):
-    cliente = repo_cliente.obtener(customer_id)
-    if not cliente:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Cliente {customer_id} no encontrado")
+    customer = CustomerIdentifier(id_cliente=id_cliente, identificacion=identificacion, nombre=nombre)
+    cliente = obtener_cliente_por_criterio(customer, repo_cliente)
     return ClienteResponse(
         id_cliente=cliente.id_cliente,
         nombre=cliente.nombre,
@@ -681,11 +731,11 @@ def obtener_cliente(
     status_code=status.HTTP_201_CREATED,
     tags=["Clientes"],
     summary="Crear cliente",
-    description="Crea un nuevo cliente.",
-    response_description="Cliente creado",
+    description="Crea un nuevo cliente. Si ya existe un cliente con el mismo nombre o identificación, retorna el existente.",
+    response_description="Cliente creado o existente",
     responses={
         201: {
-            "description": "Cliente creado exitosamente",
+            "description": "Cliente creado exitosamente o ya existía",
         },
         400: {
             "description": "Error en los datos proporcionados",
@@ -696,6 +746,32 @@ def crear_cliente(
     request: CreateClienteRequest,
     repo_cliente: RepositorioClienteSQL = Depends(obtener_repositorio_cliente)
 ):
+    cliente_existente = None
+    
+    if request.identificacion:
+        cliente_existente = repo_cliente.buscar_por_identificacion(request.identificacion)
+        if cliente_existente:
+            return ClienteResponse(
+                id_cliente=cliente_existente.id_cliente,
+                nombre=cliente_existente.nombre,
+                identificacion=cliente_existente.identificacion,
+                correo=cliente_existente.correo,
+                direccion=cliente_existente.direccion,
+                celular=cliente_existente.celular
+            )
+    
+    if request.nombre:
+        cliente_existente = repo_cliente.buscar_por_nombre(request.nombre)
+        if cliente_existente:
+            return ClienteResponse(
+                id_cliente=cliente_existente.id_cliente,
+                nombre=cliente_existente.nombre,
+                identificacion=cliente_existente.identificacion,
+                correo=cliente_existente.correo,
+                direccion=cliente_existente.direccion,
+                celular=cliente_existente.celular
+            )
+    
     cliente = Cliente(nombre=request.nombre)
     if request.identificacion:
         cliente.identificacion = request.identificacion
@@ -717,11 +793,11 @@ def crear_cliente(
 
 
 @router.patch(
-    "/customers/{customer_id}",
+    "/customers",
     response_model=ClienteResponse,
     tags=["Clientes"],
     summary="Actualizar cliente",
-    description="Actualiza la información de un cliente existente.",
+    description="Actualiza la información de un cliente existente identificado por ID, identificación o nombre.",
     response_description="Cliente actualizado",
     responses={
         200: {
@@ -733,13 +809,14 @@ def crear_cliente(
     }
 )
 def actualizar_cliente(
-    customer_id: str = Path(..., description=DESC_CUSTOMER_ID),
+    id_cliente: Optional[int] = Query(None, description="ID del cliente"),
+    identificacion: Optional[str] = Query(None, description="Identificación del cliente"),
+    nombre: Optional[str] = Query(None, description="Nombre del cliente"),
     request: UpdateClienteRequest = ...,
     repo_cliente: RepositorioClienteSQL = Depends(obtener_repositorio_cliente)
 ):
-    cliente = repo_cliente.obtener(customer_id)
-    if not cliente:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Cliente {customer_id} no encontrado")
+    customer = CustomerIdentifier(id_cliente=id_cliente, identificacion=identificacion, nombre=nombre)
+    cliente = obtener_cliente_por_criterio(customer, repo_cliente)
     
     if request.nombre is not None:
         cliente.nombre = request.nombre
@@ -763,11 +840,11 @@ def actualizar_cliente(
 
 
 @router.get(
-    "/customers/{customer_id}/vehicles",
+    "/customers/vehicles",
     response_model=ListVehiculosResponse,
     tags=["Clientes"],
     summary="Obtener vehículos de un cliente",
-    description="Obtiene la lista de vehículos asociados a un cliente.",
+    description="Obtiene la lista de vehículos asociados a un cliente identificado por ID, identificación o nombre.",
     response_description="Lista de vehículos del cliente",
     responses={
         200: {
@@ -779,19 +856,20 @@ def actualizar_cliente(
     }
 )
 def obtener_vehiculos_cliente(
-    customer_id: str = Path(..., description=DESC_CUSTOMER_ID),
+    id_cliente: Optional[int] = Query(None, description="ID del cliente"),
+    identificacion: Optional[str] = Query(None, description="Identificación del cliente"),
+    nombre: Optional[str] = Query(None, description="Nombre del cliente"),
     repo_cliente: RepositorioClienteSQL = Depends(obtener_repositorio_cliente),
     repo_vehiculo: RepositorioVehiculoSQL = Depends(obtener_repositorio_vehiculo)
 ):
-    cliente = repo_cliente.obtener(customer_id)
-    if not cliente:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Cliente {customer_id} no encontrado")
+    customer = CustomerIdentifier(id_cliente=id_cliente, identificacion=identificacion, nombre=nombre)
+    cliente = obtener_cliente_por_criterio(customer, repo_cliente)
     
-    vehiculos = repo_vehiculo.listar_por_cliente(customer_id)
+    vehiculos = repo_vehiculo.listar_por_cliente(cliente.id_cliente)
     vehiculos_response = [
         VehiculoResponse(
             id_vehiculo=v.id_vehiculo,
-            descripcion=v.descripcion,
+            placa=v.placa,
             marca=v.marca,
             modelo=v.modelo,
             anio=v.anio,
@@ -829,7 +907,7 @@ def listar_vehiculos(
         vehiculos_response.append(
             VehiculoResponse(
                 id_vehiculo=v.id_vehiculo,
-                descripcion=v.descripcion,
+                placa=v.placa,
                 marca=v.marca,
                 modelo=v.modelo,
                 anio=v.anio,
@@ -842,11 +920,11 @@ def listar_vehiculos(
 
 
 @router.get(
-    "/vehicles/{vehicle_id}",
+    "/vehicles",
     response_model=VehiculoResponse,
     tags=["Vehiculos"],
-    summary="Obtener vehículo por ID",
-    description="Obtiene los datos de un vehículo específico.",
+    summary="Obtener vehículo",
+    description="Obtiene los datos de un vehículo específico por ID o placa.",
     response_description="Datos del vehículo",
     responses={
         200: {
@@ -858,19 +936,19 @@ def listar_vehiculos(
     }
 )
 def obtener_vehiculo(
-    vehicle_id: str = Path(..., description="ID del vehículo"),
+    id_vehiculo: Optional[int] = Query(None, description="ID del vehículo"),
+    placa: Optional[str] = Query(None, description="Placa del vehículo"),
     repo_vehiculo: RepositorioVehiculoSQL = Depends(obtener_repositorio_vehiculo),
     repo_cliente: RepositorioClienteSQL = Depends(obtener_repositorio_cliente)
 ):
-    vehiculo = repo_vehiculo.obtener(vehicle_id)
-    if not vehiculo:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Vehículo {vehicle_id} no encontrado")
+    vehicle = VehicleIdentifier(id_vehiculo=id_vehiculo, placa=placa)
+    vehiculo = obtener_vehiculo_por_criterio(vehicle, repo_vehiculo)
     
     cliente = repo_cliente.obtener(vehiculo.id_cliente)
     cliente_nombre = cliente.nombre if cliente else None
     return VehiculoResponse(
         id_vehiculo=vehiculo.id_vehiculo,
-        descripcion=vehiculo.descripcion,
+        placa=vehiculo.placa,
         marca=vehiculo.marca,
         modelo=vehiculo.modelo,
         anio=vehiculo.anio,
@@ -886,11 +964,11 @@ def obtener_vehiculo(
     status_code=status.HTTP_201_CREATED,
     tags=["Vehiculos"],
     summary="Crear vehículo",
-    description="Crea un nuevo vehículo asociado a un cliente.",
-    response_description="Vehículo creado",
+    description="Crea un nuevo vehículo asociado a un cliente. Si ya existe un vehículo con la misma placa, retorna el existente.",
+    response_description="Vehículo creado o existente",
     responses={
         201: {
-            "description": "Vehículo creado exitosamente",
+            "description": "Vehículo creado exitosamente o ya existía",
         },
         400: {
             "description": "Error en los datos proporcionados",
@@ -905,13 +983,26 @@ def crear_vehiculo(
     repo_vehiculo: RepositorioVehiculoSQL = Depends(obtener_repositorio_vehiculo),
     repo_cliente: RepositorioClienteSQL = Depends(obtener_repositorio_cliente)
 ):
-    cliente = repo_cliente.obtener(request.id_cliente)
-    if not cliente:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Cliente {request.id_cliente} no encontrado")
+    cliente = obtener_cliente_por_criterio(request.customer, repo_cliente)
+    
+    vehiculo_existente = repo_vehiculo.buscar_por_placa(request.placa)
+    if vehiculo_existente:
+        cliente_vehiculo = repo_cliente.obtener(vehiculo_existente.id_cliente)
+        cliente_nombre = cliente_vehiculo.nombre if cliente_vehiculo else None
+        return VehiculoResponse(
+            id_vehiculo=vehiculo_existente.id_vehiculo,
+            placa=vehiculo_existente.placa,
+            marca=vehiculo_existente.marca,
+            modelo=vehiculo_existente.modelo,
+            anio=vehiculo_existente.anio,
+            kilometraje=vehiculo_existente.kilometraje,
+            id_cliente=vehiculo_existente.id_cliente,
+            cliente_nombre=cliente_nombre
+        )
     
     vehiculo = Vehiculo(
-        descripcion=request.descripcion,
-        id_cliente=request.id_cliente,
+        placa=request.placa,
+        id_cliente=cliente.id_cliente,
         marca=request.marca,
         modelo=request.modelo,
         anio=request.anio,
@@ -920,7 +1011,7 @@ def crear_vehiculo(
     repo_vehiculo.guardar(vehiculo)
     return VehiculoResponse(
         id_vehiculo=vehiculo.id_vehiculo,
-        descripcion=vehiculo.descripcion,
+        placa=vehiculo.placa,
         marca=vehiculo.marca,
         modelo=vehiculo.modelo,
         anio=vehiculo.anio,
@@ -931,11 +1022,11 @@ def crear_vehiculo(
 
 
 @router.patch(
-    "/vehicles/{vehicle_id}",
+    "/vehicles",
     response_model=VehiculoResponse,
     tags=["Vehiculos"],
     summary="Actualizar vehículo",
-    description="Actualiza la información de un vehículo existente.",
+    description="Actualiza la información de un vehículo existente identificado por ID o placa (query parameters).",
     response_description="Vehículo actualizado",
     responses={
         200: {
@@ -947,30 +1038,32 @@ def crear_vehiculo(
     }
 )
 def actualizar_vehiculo(
-    vehicle_id: str = Path(..., description="ID del vehículo"),
+    id_vehiculo: Optional[int] = Query(None, description="ID del vehículo"),
+    placa: Optional[str] = Query(None, description="Placa del vehículo"),
     request: UpdateVehiculoRequest = ...,
     repo_vehiculo: RepositorioVehiculoSQL = Depends(obtener_repositorio_vehiculo),
     repo_cliente: RepositorioClienteSQL = Depends(obtener_repositorio_cliente)
 ):
-    vehiculo = repo_vehiculo.obtener(vehicle_id)
-    if not vehiculo:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Vehículo {vehicle_id} no encontrado")
+    vehicle = VehicleIdentifier(id_vehiculo=id_vehiculo, placa=placa)
+    vehiculo = obtener_vehiculo_por_criterio(vehicle, repo_vehiculo)
     
-    if request.descripcion is not None:
-        vehiculo.descripcion = request.descripcion
+    if request.placa is not None:
+        vehiculo.placa = request.placa
     if request.marca is not None:
         vehiculo.marca = request.marca
     if request.modelo is not None:
         vehiculo.modelo = request.modelo
     if request.anio is not None:
         vehiculo.anio = request.anio
-    if request.id_cliente is not None:
-        cliente_nuevo = repo_cliente.obtener(request.id_cliente)
-        if not cliente_nuevo:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Cliente {request.id_cliente} no encontrado")
-        vehiculo.id_cliente = request.id_cliente
     if request.kilometraje is not None:
         vehiculo.kilometraje = request.kilometraje
+    if request.customer is not None:
+        if isinstance(request.customer, str):
+            customer_identifier = CustomerIdentifier(nombre=request.customer)
+        else:
+            customer_identifier = request.customer
+        cliente_nuevo = obtener_cliente_por_criterio(customer_identifier, repo_cliente)
+        vehiculo.id_cliente = cliente_nuevo.id_cliente
     
     repo_vehiculo.guardar(vehiculo)
     
@@ -978,7 +1071,71 @@ def actualizar_vehiculo(
     cliente_nombre = cliente.nombre if cliente else None
     return VehiculoResponse(
         id_vehiculo=vehiculo.id_vehiculo,
-        descripcion=vehiculo.descripcion,
+        placa=vehiculo.placa,
+        marca=vehiculo.marca,
+        modelo=vehiculo.modelo,
+        anio=vehiculo.anio,
+        kilometraje=vehiculo.kilometraje,
+        id_cliente=vehiculo.id_cliente,
+        cliente_nombre=cliente_nombre
+    )
+
+
+@router.patch(
+    "/vehicles/{vehicle_identifier}",
+    response_model=VehiculoResponse,
+    tags=["Vehiculos"],
+    summary="Actualizar vehículo por identificador",
+    description="Actualiza la información de un vehículo existente identificado por ID o placa en el path.",
+    response_description="Vehículo actualizado",
+    responses={
+        200: {
+            "description": "Vehículo actualizado exitosamente",
+        },
+        404: {
+            "description": "Vehículo o cliente no encontrado",
+        }
+    }
+)
+def actualizar_vehiculo_por_path(
+    vehicle_identifier: str = Path(..., description="ID del vehículo (numérico) o placa del vehículo"),
+    request: UpdateVehiculoRequest = ...,
+    repo_vehiculo: RepositorioVehiculoSQL = Depends(obtener_repositorio_vehiculo),
+    repo_cliente: RepositorioClienteSQL = Depends(obtener_repositorio_cliente)
+):
+    try:
+        id_vehiculo = int(vehicle_identifier)
+        vehicle = VehicleIdentifier(id_vehiculo=id_vehiculo, placa=None)
+    except ValueError:
+        vehicle = VehicleIdentifier(id_vehiculo=None, placa=vehicle_identifier)
+    
+    vehiculo = obtener_vehiculo_por_criterio(vehicle, repo_vehiculo)
+    
+    if request.placa is not None:
+        vehiculo.placa = request.placa
+    if request.marca is not None:
+        vehiculo.marca = request.marca
+    if request.modelo is not None:
+        vehiculo.modelo = request.modelo
+    if request.anio is not None:
+        vehiculo.anio = request.anio
+    if request.kilometraje is not None:
+        vehiculo.kilometraje = request.kilometraje
+    if request.customer is not None:
+        if isinstance(request.customer, str):
+            customer_identifier = CustomerIdentifier(nombre=request.customer)
+        else:
+            customer_identifier = request.customer
+        cliente_nuevo = obtener_cliente_por_criterio(customer_identifier, repo_cliente)
+        vehiculo.id_cliente = cliente_nuevo.id_cliente
+    
+    repo_vehiculo.guardar(vehiculo)
+    
+    cliente = repo_cliente.obtener(vehiculo.id_cliente)
+    cliente_nombre = cliente.nombre if cliente else None
+    return VehiculoResponse(
+        id_vehiculo=vehiculo.id_vehiculo,
+        placa=vehiculo.placa,
         marca=vehiculo.marca,
         modelo=vehiculo.modelo,
         anio=vehiculo.anio,

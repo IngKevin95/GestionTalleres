@@ -252,9 +252,20 @@ class ListClientesResponse(BaseModel):
     clientes: List[ClienteResponse]
 
 
+class CustomerIdentifier(BaseModel):
+    id_cliente: Optional[int] = None
+    identificacion: Optional[str] = None
+    nombre: Optional[str] = None
+
+
+class VehicleIdentifier(BaseModel):
+    id_vehiculo: Optional[int] = None
+    placa: Optional[str] = None
+
+
 class VehiculoResponse(BaseModel):
     id_vehiculo: int
-    descripcion: str
+    placa: str
     marca: Optional[str] = None
     modelo: Optional[str] = None
     anio: Optional[int] = None
@@ -264,8 +275,8 @@ class VehiculoResponse(BaseModel):
 
 
 class CreateVehiculoRequest(BaseModel):
-    descripcion: str
-    id_cliente: int
+    placa: str
+    customer: CustomerIdentifier
     marca: Optional[str] = None
     modelo: Optional[str] = None
     anio: Optional[int] = None
@@ -273,12 +284,23 @@ class CreateVehiculoRequest(BaseModel):
 
 
 class UpdateVehiculoRequest(BaseModel):
-    descripcion: Optional[str] = None
-    id_cliente: Optional[int] = None
+    placa: Optional[str] = None
+    customer: Optional[Union[CustomerIdentifier, str]] = None
     marca: Optional[str] = None
     modelo: Optional[str] = None
     anio: Optional[int] = None
     kilometraje: Optional[int] = None
+    
+    @field_validator('customer', mode='before')
+    @classmethod
+    def validate_customer(cls, v):
+        if v is None:
+            return None
+        if isinstance(v, str):
+            return CustomerIdentifier(nombre=v)
+        if isinstance(v, dict):
+            return CustomerIdentifier(**v)
+        return v
 
 
 class ListVehiculosResponse(BaseModel):

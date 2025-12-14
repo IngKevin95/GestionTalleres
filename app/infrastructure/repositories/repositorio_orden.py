@@ -34,7 +34,7 @@ class RepositorioOrden(IRepositorioOrden):
     
     def guardar(self, orden: Orden) -> None:
         cliente = self.repo_cliente.buscar_o_crear_por_nombre(orden.cliente)
-        vehiculo = self.repo_vehiculo.buscar_o_crear_por_descripcion(orden.vehiculo, cliente.id_cliente)
+        vehiculo = self.repo_vehiculo.buscar_o_crear_por_placa(orden.vehiculo, cliente.id_cliente)
         
         modelo = self.sesion.query(OrdenModel).filter(OrdenModel.order_id == orden.order_id).first()
         
@@ -87,12 +87,12 @@ class RepositorioOrden(IRepositorioOrden):
         eventos = self.repo_evento.deserializar_eventos(m.eventos)
         
         cliente_nombre = m.cliente.nombre if m.cliente else ""
-        vehiculo_desc = m.vehiculo.descripcion if m.vehiculo else ""
+        vehiculo_placa = m.vehiculo.placa if m.vehiculo else ""
         
         orden = Orden(
             order_id=m.order_id,
             cliente=cliente_nombre,
-            vehiculo=vehiculo_desc,
+            vehiculo=vehiculo_placa,
             fecha_creacion=m.fecha_creacion,
             id=m.id
         )
