@@ -10,3 +10,4 @@ class Componente:
         self.costo_estimado = costo_estimado
         self.costo_real = costo_real
 
+

@@ -28,3 +28,8 @@ exclude_lines = [
     "@(abc\\.)?abstractmethod",
 ]
 
+[tool.pydocstyle]
+# No requerir docstrings en tests
+ignore = ["D10*", "D40*"]
+match = "(?!test_).*\\.py"
+

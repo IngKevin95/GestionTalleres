@@ -8,3 +8,4 @@ class Evento:
         self.timestamp = timestamp
         self.metadatos = metadatos or {}
 
+
