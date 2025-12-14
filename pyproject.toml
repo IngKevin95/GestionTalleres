@@ -3,7 +3,10 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "-v --tb=short --cov=app --cov-report=term-missing --cov-report=html"
+addopts = "-v --tb=short --cov=app --cov-report=term-missing --cov-report=html -W ignore::PendingDeprecationWarning"
+filterwarnings = [
+    "ignore::PendingDeprecationWarning"
+]
 
 [tool.coverage.run]
 source = ["app"]
