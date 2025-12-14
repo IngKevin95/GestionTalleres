@@ -21,7 +21,7 @@ class RepositorioVehiculoSQL:
                 id_cliente=modelo.id_cliente,
                 marca=modelo.marca,
                 modelo=modelo.modelo,
-                año=modelo.año,
+                anio=modelo.anio,
                 id_vehiculo=modelo.id_vehiculo
             )
         
@@ -31,7 +31,7 @@ class RepositorioVehiculoSQL:
             descripcion=vehiculo.descripcion,
             marca=vehiculo.marca,
             modelo=vehiculo.modelo,
-            año=vehiculo.año,
+            anio=vehiculo.anio,
             id_cliente=vehiculo.id_cliente
         )
         self.sesion.add(modelo)
@@ -49,7 +49,7 @@ class RepositorioVehiculoSQL:
             id_cliente=m.id_cliente,
             marca=m.marca,
             modelo=m.modelo,
-            año=m.año,
+            anio=m.anio,
             id_vehiculo=m.id_vehiculo
         )
     
@@ -62,7 +62,7 @@ class RepositorioVehiculoSQL:
                 id_cliente=m.id_cliente,
                 marca=m.marca,
                 modelo=m.modelo,
-                año=m.año,
+                anio=m.anio,
                 id_vehiculo=m.id_vehiculo
             ))
         return vehiculos
@@ -76,7 +76,7 @@ class RepositorioVehiculoSQL:
                 id_cliente=m.id_cliente,
                 marca=m.marca,
                 modelo=m.modelo,
-                año=m.año,
+                anio=m.anio,
                 id_vehiculo=m.id_vehiculo
             ))
         return resultado
@@ -87,7 +87,7 @@ class RepositorioVehiculoSQL:
             m.descripcion = vehiculo.descripcion
             m.marca = vehiculo.marca
             m.modelo = vehiculo.modelo
-            m.año = vehiculo.año
+            m.anio = vehiculo.anio
             m.id_cliente = vehiculo.id_cliente
         else:
             nuevo = VehiculoModel(
@@ -95,7 +95,7 @@ class RepositorioVehiculoSQL:
                 descripcion=vehiculo.descripcion,
                 marca=vehiculo.marca,
                 modelo=vehiculo.modelo,
-                año=vehiculo.año,
+                anio=vehiculo.anio,
                 id_cliente=vehiculo.id_cliente
             )
             self.sesion.add(nuevo)

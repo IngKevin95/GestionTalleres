@@ -182,7 +182,7 @@ def vehiculo_a_dto(v: Vehiculo, cliente_nombre: Optional[str] = None) -> Vehicul
         descripcion=v.descripcion,
         marca=v.marca,
         modelo=v.modelo,
-        año=v.año,
+        anio=v.anio,
         id_cliente=v.id_cliente,
         cliente_nombre=cliente_nombre
     )

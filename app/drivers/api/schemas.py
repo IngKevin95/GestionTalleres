@@ -1,22 +1,15 @@
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 from decimal import Decimal
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 DESC_NOMBRE_CLIENTE = "Nombre del cliente"
 DESC_DESCRIPCION_VEHICULO = "Descripción del vehículo"
 
 
 class HealthResponse(BaseModel):
-    status: str = Field(..., description="Estado general: 'ok', 'warning' o 'error'")
-    api: str = Field(..., description="Estado de la API")
-    database: Optional[str] = Field(None, description="Estado de la conexión a la base de datos")
-    tablas: List[str] = Field(default_factory=list, description="Lista de tablas existentes en la BD")
-    tablas_faltantes: List[str] = Field(default_factory=list, description="Lista de tablas que faltan")
-    mensaje: Optional[str] = Field(None, description="Mensaje adicional si hay advertencias o errores")
-    
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "status": "ok",
                 "api": "operativa",
@@ -26,17 +19,18 @@ class HealthResponse(BaseModel):
                 "mensaje": None
             }
         }
+    )
+    status: str = Field(..., description="Estado general: 'ok', 'warning' o 'error'")
+    api: str = Field(..., description="Estado de la API")
+    database: Optional[str] = Field(None, description="Estado de la conexión a la base de datos")
+    tablas: List[str] = Field(default_factory=list, description="Lista de tablas existentes en la BD")
+    tablas_faltantes: List[str] = Field(default_factory=list, description="Lista de tablas que faltan")
+    mensaje: Optional[str] = Field(None, description="Mensaje adicional si hay advertencias o errores")
 
 
 class CommandsRequest(BaseModel):
-    commands: List[Dict[str, Any]] = Field(
-        ...,
-        description="Lista de comandos a procesar",
-        min_items=1
-    )
-    
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "commands": [
                     {
@@ -60,15 +54,17 @@ class CommandsRequest(BaseModel):
                 ]
             }
         }
+    )
+    commands: List[Dict[str, Any]] = Field(
+        ...,
+        description="Lista de comandos a procesar",
+        min_length=1
+    )
 
 
 class CommandsResponse(BaseModel):
-    orders: List[Dict[str, Any]] = Field(..., description="Lista de órdenes procesadas")
-    events: List[Dict[str, Any]] = Field(..., description="Lista de eventos generados")
-    errors: List[Dict[str, Any]] = Field(default_factory=list, description="Lista de errores encontrados")
-    
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "orders": [
                     {
@@ -91,22 +87,25 @@ class CommandsResponse(BaseModel):
                 "errors": []
             }
         }
+    )
+    orders: List[Dict[str, Any]] = Field(..., description="Lista de órdenes procesadas")
+    events: List[Dict[str, Any]] = Field(..., description="Lista de eventos generados")
+    errors: List[Dict[str, Any]] = Field(default_factory=list, description="Lista de errores encontrados")
 
 
 class SetStateRequest(BaseModel):
-    state: str = Field(
-        ...,
-        description="Estado a establecer",
-        example="DIAGNOSED",
-        enum=["DIAGNOSED", "IN_PROGRESS"]
-    )
-    
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "state": "DIAGNOSED"
             }
         }
+    )
+    state: str = Field(
+        ...,
+        description="Estado a establecer",
+        json_schema_extra={"enum": ["DIAGNOSED", "IN_PROGRESS"]}
+    )
 
 
 class CreateOrderRequest(BaseModel):
@@ -166,7 +165,7 @@ class VehiculoResponse(BaseModel):
     descripcion: str
     marca: Optional[str] = None
     modelo: Optional[str] = None
-    año: Optional[int] = None
+    anio: Optional[int] = None
     id_cliente: str
     cliente_nombre: Optional[str] = None
 
@@ -176,7 +175,7 @@ class CreateVehiculoRequest(BaseModel):
     id_cliente: str
     marca: Optional[str] = None
     modelo: Optional[str] = None
-    año: Optional[int] = None
+    anio: Optional[int] = None
 
 
 class UpdateVehiculoRequest(BaseModel):
@@ -184,7 +183,7 @@ class UpdateVehiculoRequest(BaseModel):
     id_cliente: Optional[str] = None
     marca: Optional[str] = None
     modelo: Optional[str] = None
-    año: Optional[int] = None
+    anio: Optional[int] = None
 
 
 class ListVehiculosResponse(BaseModel):

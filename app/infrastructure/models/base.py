@@ -1,4 +1,4 @@
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import declarative_base
 from ...domain.zona_horaria import ahora
 
 Base = declarative_base()

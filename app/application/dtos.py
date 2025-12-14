@@ -110,7 +110,7 @@ class VehiculoDTO(BaseModel):
     descripcion: str
     marca: Optional[str] = None
     modelo: Optional[str] = None
-    año: Optional[int] = None
+    anio: Optional[int] = None
     id_cliente: str
     cliente_nombre: Optional[str] = None
 
@@ -124,5 +124,5 @@ class CrearVehiculoDTO(BaseModel):
     id_cliente: str
     marca: Optional[str] = None
     modelo: Optional[str] = None
-    año: Optional[int] = None
+    anio: Optional[int] = None
 

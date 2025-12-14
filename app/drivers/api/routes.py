@@ -271,7 +271,7 @@ def crear_orden(
     }
 )
 def obtener_orden(
-    order_id: str = Path(..., description=f"{DESC_ORDER_ID} a consultar", example="ORD-12345678"),
+    order_id: str = Path(..., description=f"{DESC_ORDER_ID} a consultar", examples=["ORD-12345678"]),
     repo: RepositorioOrden = Depends(obtener_repositorio)
 ):
     o = repo.obtener(order_id)
@@ -301,7 +301,7 @@ def obtener_orden(
     }
 )
 def actualizar_orden(
-    order_id: str = Path(..., description=DESC_ORDER_ID, example="ORD-12345678"),
+    order_id: str = Path(..., description=DESC_ORDER_ID, examples=["ORD-12345678"]),
     customer: Optional[str] = Body(None, description="Nombre del cliente"),
     vehicle: Optional[str] = Body(None, description="Descripción del vehículo"),
     repo: RepositorioOrden = Depends(obtener_repositorio)
@@ -326,7 +326,7 @@ def actualizar_orden(
     summary="Establecer estado de orden"
 )
 def establecer_estado(
-    order_id: str = Path(..., description=DESC_ORDER_ID, example="ORD-12345678"),
+    order_id: str = Path(..., description=DESC_ORDER_ID, examples=["ORD-12345678"]),
     request: SetStateRequest = ...,
     repo: RepositorioOrden = Depends(obtener_repositorio),
     action_service: ActionService = Depends(obtener_action_service)
@@ -363,7 +363,7 @@ def establecer_estado(
     tags=["Ordenes"]
 )
 def agregar_servicio(
-    order_id: str = Path(..., description=DESC_ORDER_ID, example="ORD-12345678"),
+    order_id: str = Path(..., description=DESC_ORDER_ID, examples=["ORD-12345678"]),
     request: AddServiceRequest = ...,
     action_service: ActionService = Depends(obtener_action_service)
 ):
@@ -389,7 +389,7 @@ def agregar_servicio(
     tags=["Ordenes"]
 )
 def autorizar_orden(
-    order_id: str = Path(..., description=DESC_ORDER_ID, example="ORD-12345678"),
+    order_id: str = Path(..., description=DESC_ORDER_ID, examples=["ORD-12345678"]),
     request: AuthorizeRequest = ...,
     action_service: ActionService = Depends(obtener_action_service)
 ):
@@ -426,7 +426,7 @@ def autorizar_orden(
     }
 )
 def reautorizar_orden(
-    order_id: str = Path(..., description=DESC_ORDER_ID, example="ORD-12345678"),
+    order_id: str = Path(..., description=DESC_ORDER_ID, examples=["ORD-12345678"]),
     request: ReauthorizeRequest = ...,
     action_service: ActionService = Depends(obtener_action_service)
 ):
@@ -464,7 +464,7 @@ def reautorizar_orden(
     }
 )
 def establecer_costo_real(
-    order_id: str = Path(..., description=DESC_ORDER_ID, example="ORD-12345678"),
+    order_id: str = Path(..., description=DESC_ORDER_ID, examples=["ORD-12345678"]),
     request: SetRealCostRequest = ...,
     action_service: ActionService = Depends(obtener_action_service)
 ):
@@ -491,7 +491,7 @@ def establecer_costo_real(
     tags=["Ordenes"]
 )
 def intentar_completar_orden(
-    order_id: str = Path(..., description=DESC_ORDER_ID, example="ORD-12345678"),
+    order_id: str = Path(..., description=DESC_ORDER_ID, examples=["ORD-12345678"]),
     action_service: ActionService = Depends(obtener_action_service)
 ):
     data = {"order_id": order_id}
@@ -524,7 +524,7 @@ def intentar_completar_orden(
     }
 )
 def entregar_orden(
-    order_id: str = Path(..., description=DESC_ORDER_ID, example="ORD-12345678"),
+    order_id: str = Path(..., description=DESC_ORDER_ID, examples=["ORD-12345678"]),
     action_service: ActionService = Depends(obtener_action_service)
 ):
     data = {"order_id": order_id}
@@ -557,7 +557,7 @@ def entregar_orden(
     }
 )
 def cancelar_orden(
-    order_id: str = Path(..., description=DESC_ORDER_ID, example="ORD-12345678"),
+    order_id: str = Path(..., description=DESC_ORDER_ID, examples=["ORD-12345678"]),
     request: CancelRequest = ...,
     action_service: ActionService = Depends(obtener_action_service)
 ):
@@ -795,7 +795,7 @@ def crear_vehiculo(
         id_cliente=request.id_cliente,
         marca=request.marca,
         modelo=request.modelo,
-        año=request.año
+        anio=request.anio
     )
     repo_vehiculo.guardar(vehiculo)
     return vehiculo_a_dto(vehiculo, cliente.nombre)
@@ -833,8 +833,8 @@ def actualizar_vehiculo(
         vehiculo.marca = request.marca
     if request.modelo is not None:
         vehiculo.modelo = request.modelo
-    if request.año is not None:
-        vehiculo.año = request.año
+    if request.anio is not None:
+        vehiculo.anio = request.anio
     if request.id_cliente is not None:
         cliente_nuevo = repo_cliente.obtener(request.id_cliente)
         if not cliente_nuevo:
