@@ -6,8 +6,8 @@ from .base import Base
 class ServicioModel(Base):
     __tablename__ = "servicios"
     
-    id_servicio = Column(String, primary_key=True)
-    id_orden = Column(String, ForeignKey("ordenes.id_orden", ondelete="CASCADE"), nullable=False)
+    id_servicio = Column(Integer, primary_key=True, autoincrement=True)
+    id_orden = Column(Integer, ForeignKey("ordenes.id_orden", ondelete="CASCADE"), nullable=False)
     descripcion = Column(String, nullable=False)
     costo_mano_obra_estimado = Column(String, nullable=False)
     costo_real = Column(String, nullable=True)

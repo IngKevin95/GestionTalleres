@@ -1,12 +1,11 @@
 from decimal import Decimal
 from typing import List, Optional
-from uuid import uuid4
 from .component import Componente
 
 
 class Servicio:
     def __init__(self, descripcion: str, costo_mano_obra_estimado: Decimal, componentes: List[Componente] = None):
-        self.id_servicio = str(uuid4())
+        self.id_servicio: Optional[int] = None
         self.descripcion = descripcion
         self.costo_mano_obra_estimado = costo_mano_obra_estimado
         self.componentes = componentes or []

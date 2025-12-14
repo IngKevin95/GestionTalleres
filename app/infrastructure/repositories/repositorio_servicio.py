@@ -11,11 +11,11 @@ class RepositorioServicioSQL:
     def __init__(self, sesion: Session):
         self.sesion = sesion
     
-    def guardar_servicios(self, id_orden: str, servicios: List[Servicio], servicios_existentes: List[ServicioModel]) -> None:
-        existentes_dict = {s.id_servicio: s for s in servicios_existentes}
+    def guardar_servicios(self, id_orden: int, servicios: List[Servicio], servicios_existentes: List[ServicioModel]) -> None:
+        existentes_dict = {s.id_servicio: s for s in servicios_existentes if s.id_servicio is not None}
         
         for serv in servicios:
-            if serv.id_servicio in existentes_dict:
+            if serv.id_servicio is not None and serv.id_servicio in existentes_dict:
                 sm = existentes_dict[serv.id_servicio]
                 sm.descripcion = serv.descripcion
                 sm.costo_mano_obra_estimado = str(serv.costo_mano_obra_estimado)
@@ -23,7 +23,6 @@ class RepositorioServicioSQL:
                 sm.completado = 1 if serv.completado else 0
             else:
                 nuevo = ServicioModel(
-                    id_servicio=serv.id_servicio,
                     id_orden=id_orden,
                     descripcion=serv.descripcion,
                     costo_mano_obra_estimado=str(serv.costo_mano_obra_estimado),
@@ -31,38 +30,41 @@ class RepositorioServicioSQL:
                     completado=1 if serv.completado else 0
                 )
                 self.sesion.add(nuevo)
+                self.sesion.flush()
+                serv.id_servicio = nuevo.id_servicio
                 servicios_existentes.append(nuevo)
                 sm = nuevo
             
             self._guardar_componentes(sm, serv)
         
-        ids_servicios = {s.id_servicio for s in servicios}
+        ids_servicios = {s.id_servicio for s in servicios if s.id_servicio is not None}
         for sm in list(servicios_existentes):
             if sm.id_servicio not in ids_servicios:
                 self.sesion.delete(sm)
                 servicios_existentes.remove(sm)
     
     def _guardar_componentes(self, sm: ServicioModel, servicio: Servicio) -> None:
-        existentes = {c.id_componente: c for c in sm.componentes}
+        existentes = {c.id_componente: c for c in sm.componentes if c.id_componente is not None}
         
         for comp in servicio.componentes:
-            if comp.id_componente in existentes:
+            if comp.id_componente is not None and comp.id_componente in existentes:
                 cm = existentes[comp.id_componente]
                 cm.descripcion = comp.descripcion
                 cm.costo_estimado = str(comp.costo_estimado)
                 cm.costo_real = str(comp.costo_real) if comp.costo_real else None
             else:
                 nuevo_comp = ComponenteModel(
-                    id_componente=comp.id_componente,
                     id_servicio=sm.id_servicio,
                     descripcion=comp.descripcion,
                     costo_estimado=str(comp.costo_estimado),
                     costo_real=str(comp.costo_real) if comp.costo_real else None
                 )
                 self.sesion.add(nuevo_comp)
+                self.sesion.flush()
+                comp.id_componente = nuevo_comp.id_componente
                 sm.componentes.append(nuevo_comp)
         
-        ids_comps = {c.id_componente for c in servicio.componentes}
+        ids_comps = {c.id_componente for c in servicio.componentes if c.id_componente is not None}
         for cm in list(sm.componentes):
             if cm.id_componente not in ids_comps:
                 self.sesion.delete(cm)

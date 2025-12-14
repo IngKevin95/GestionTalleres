@@ -24,7 +24,7 @@ class RepositorioOrden(IRepositorioOrden):
         self.repo_cliente = RepositorioClienteSQL(sesion)
         self.repo_vehiculo = RepositorioVehiculoSQL(sesion)
     
-    def obtener(self, id_orden: str) -> Optional[Orden]:
+    def obtener(self, id_orden: int) -> Optional[Orden]:
         m = self.sesion.query(OrdenModel).filter(OrdenModel.id_orden == id_orden).first()
         if m is None:
             return None
@@ -36,21 +36,26 @@ class RepositorioOrden(IRepositorioOrden):
         cliente = self.repo_cliente.buscar_o_crear_por_nombre(orden.cliente)
         vehiculo = self.repo_vehiculo.buscar_o_crear_por_descripcion(orden.vehiculo, cliente.id_cliente)
         
-        modelo = self.sesion.query(OrdenModel).filter(OrdenModel.id_orden == orden.id_orden).first()
-        
-        if modelo:
-            self._actualizar_modelo(modelo, orden, cliente.id_cliente, vehiculo.id_vehiculo)
+        if orden.id_orden is not None:
+            modelo = self.sesion.query(OrdenModel).filter(OrdenModel.id_orden == orden.id_orden).first()
+            if modelo:
+                self._actualizar_modelo(modelo, orden, cliente.id_cliente, vehiculo.id_vehiculo)
+            else:
+                modelo = self._serializar(orden, cliente.id_cliente, vehiculo.id_vehiculo)
+                self.sesion.add(modelo)
         else:
             modelo = self._serializar(orden, cliente.id_cliente, vehiculo.id_vehiculo)
             self.sesion.add(modelo)
         
         self.sesion.flush()
+        if orden.id_orden is None:
+            orden.id_orden = modelo.id_orden
         self.repo_servicio.guardar_servicios(modelo.id_orden, orden.servicios, modelo.servicios)
         self.repo_evento.guardar_eventos(modelo.id_orden, orden.eventos, modelo.eventos)
         self.sesion.commit()
         
     
-    def _serializar(self, orden: Orden, id_cliente: str, id_vehiculo: str) -> OrdenModel:
+    def _serializar(self, orden: Orden, id_cliente: int, id_vehiculo: int) -> OrdenModel:
         monto_str = str(orden.monto_autorizado) if orden.monto_autorizado else None
         return OrdenModel(
             id_orden=orden.id_orden,
@@ -64,7 +69,7 @@ class RepositorioOrden(IRepositorioOrden):
             fecha_cancelacion=orden.fecha_cancelacion
         )
     
-    def _actualizar_modelo(self, m: OrdenModel, orden: Orden, id_cliente: str, id_vehiculo: str) -> None:
+    def _actualizar_modelo(self, m: OrdenModel, orden: Orden, id_cliente: int, id_vehiculo: int) -> None:
         m.id_cliente = id_cliente
         m.id_vehiculo = id_vehiculo
         m.estado = orden.estado.value

@@ -1,7 +1,6 @@
 from decimal import Decimal
 from datetime import datetime
 from typing import List, Optional
-from uuid import uuid4
 from ..enums import EstadoOrden, CodigoError
 from ..exceptions import ErrorDominio
 from ..dinero import redondear_mitad_par
@@ -11,7 +10,7 @@ from .event import Evento
 
 
 class Orden:
-    def __init__(self, id_orden: str, cliente: str, vehiculo: str, fecha_creacion: datetime):
+    def __init__(self, id_orden: Optional[int], cliente: str, vehiculo: str, fecha_creacion: datetime):
         self.id_orden = id_orden
         self.cliente = cliente
         self.vehiculo = vehiculo
@@ -79,7 +78,7 @@ class Orden:
         self.estado = EstadoOrden.IN_PROGRESS
         self._agregar_evento("IN_PROGRESS")
 
-    def establecer_costo_real(self, servicio_id: str, costo_real: Decimal, componentes_reales: dict = None):
+    def establecer_costo_real(self, servicio_id: int, costo_real: Decimal, componentes_reales: dict = None):
         if self.estado == EstadoOrden.CANCELLED:
             raise ErrorDominio(CodigoError.ORDER_CANCELLED, "La orden está cancelada")
         

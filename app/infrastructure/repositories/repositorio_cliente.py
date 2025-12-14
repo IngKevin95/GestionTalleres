@@ -16,16 +16,14 @@ class RepositorioClienteSQL:
             return Cliente(nombre=modelo.nombre, id_cliente=modelo.id_cliente)
         
         cliente = Cliente(nombre=nombre)
-        modelo = ClienteModel(
-            id_cliente=cliente.id_cliente,
-            nombre=cliente.nombre
-        )
+        modelo = ClienteModel(nombre=cliente.nombre)
         self.sesion.add(modelo)
         self.sesion.flush()
+        cliente.id_cliente = modelo.id_cliente
         
         return cliente
     
-    def obtener(self, id_cliente: str) -> Optional[Cliente]:
+    def obtener(self, id_cliente: int) -> Optional[Cliente]:
         m = self.sesion.query(ClienteModel).filter(ClienteModel.id_cliente == id_cliente).first()
         if m is None:
             return None
@@ -40,11 +38,17 @@ class RepositorioClienteSQL:
         return clientes
     
     def guardar(self, cliente: Cliente) -> None:
-        m = self.sesion.query(ClienteModel).filter(ClienteModel.id_cliente == cliente.id_cliente).first()
-        if m:
-            m.nombre = cliente.nombre
+        if cliente.id_cliente is not None:
+            m = self.sesion.query(ClienteModel).filter(ClienteModel.id_cliente == cliente.id_cliente).first()
+            if m:
+                m.nombre = cliente.nombre
+            else:
+                nuevo = ClienteModel(id_cliente=cliente.id_cliente, nombre=cliente.nombre)
+                self.sesion.add(nuevo)
         else:
-            nuevo = ClienteModel(id_cliente=cliente.id_cliente, nombre=cliente.nombre)
+            nuevo = ClienteModel(nombre=cliente.nombre)
             self.sesion.add(nuevo)
+            self.sesion.flush()
+            cliente.id_cliente = nuevo.id_cliente
         self.sesion.commit()
 

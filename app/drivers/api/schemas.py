@@ -111,7 +111,7 @@ class SetStateRequest(BaseModel):
 class CreateOrderRequest(BaseModel):
     customer: str
     vehicle: str
-    order_id: Optional[str] = None
+    order_id: Optional[int] = None
     ts: Optional[datetime] = None
 
 
@@ -123,11 +123,11 @@ class AddServiceRequest(BaseModel):
 
 
 class SetRealCostRequest(BaseModel):
-    service_id: Optional[str] = None
+    service_id: Optional[int] = None
     service_index: Optional[int] = None
     real_cost: Decimal
     completed: Optional[bool] = None
-    components_real: Optional[Dict[str, Decimal]] = {}
+    components_real: Optional[Dict[int, Decimal]] = {}
 
 
 class AuthorizeRequest(BaseModel):
@@ -144,7 +144,7 @@ class CancelRequest(BaseModel):
 
 
 class ClienteResponse(BaseModel):
-    id_cliente: str
+    id_cliente: int
     nombre: str
 
 
@@ -161,18 +161,18 @@ class ListClientesResponse(BaseModel):
 
 
 class VehiculoResponse(BaseModel):
-    id_vehiculo: str
+    id_vehiculo: int
     descripcion: str
     marca: Optional[str] = None
     modelo: Optional[str] = None
     anio: Optional[int] = None
-    id_cliente: str
+    id_cliente: int
     cliente_nombre: Optional[str] = None
 
 
 class CreateVehiculoRequest(BaseModel):
     descripcion: str
-    id_cliente: str
+    id_cliente: int
     marca: Optional[str] = None
     modelo: Optional[str] = None
     anio: Optional[int] = None
@@ -180,7 +180,7 @@ class CreateVehiculoRequest(BaseModel):
 
 class UpdateVehiculoRequest(BaseModel):
     descripcion: Optional[str] = None
-    id_cliente: Optional[str] = None
+    id_cliente: Optional[int] = None
     marca: Optional[str] = None
     modelo: Optional[str] = None
     anio: Optional[int] = None

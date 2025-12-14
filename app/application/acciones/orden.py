@@ -1,4 +1,3 @@
-from uuid import uuid4
 from datetime import datetime
 
 from ...domain.entidades import Orden, Evento
@@ -16,13 +15,12 @@ class CrearOrden:
         self.auditoria = auditoria
     
     def ejecutar(self, dto: CrearOrdenDTO) -> OrdenDTO:
-        id_orden = dto.order_id if dto.order_id else f"ORD-{uuid4().hex[:8].upper()}"
+        if dto.order_id is not None:
+            orden_existente = self.repositorio.obtener(dto.order_id)
+            if orden_existente:
+                return orden_a_dto(orden_existente)
         
-        orden_existente = self.repositorio.obtener(id_orden)
-        if orden_existente:
-            return orden_a_dto(orden_existente)
-        
-        orden = Orden(id_orden, dto.cliente, dto.vehiculo, dto.timestamp)
+        orden = Orden(None, dto.cliente, dto.vehiculo, dto.timestamp)
         orden.eventos.append(Evento("CREATED", ahora(), {}))
         
         self.repositorio.guardar(orden)

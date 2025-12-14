@@ -10,7 +10,7 @@ class RepositorioEventoSQL:
     def __init__(self, sesion: Session):
         self.sesion = sesion
     
-    def guardar_eventos(self, id_orden: str, eventos: List[Evento], eventos_existentes: List[EventoModel]) -> None:
+    def guardar_eventos(self, id_orden: int, eventos: List[Evento], eventos_existentes: List[EventoModel]) -> None:
         for i, evt in enumerate(eventos):
             if i < len(eventos_existentes):
                 em = eventos_existentes[i]
