@@ -34,22 +34,68 @@ class CommandsRequest(BaseModel):
             "example": {
                 "commands": [
                     {
-                        "command": "CREATE_ORDER",
-                        "customer": "Juan Pérez",
-                        "vehicle": "Toyota Corolla 2020",
-                        "ts": "2024-01-15T10:00:00-05:00"
+                        "op": "CREATE_ORDER",
+                        "ts": "2025-03-01T09:00:00Z",
+                        "data": {
+                            "order_id": "R001",
+                            "customer": "ACME",
+                            "vehicle": "ABC-123"
+                        }
                     },
                     {
-                        "command": "ADD_SERVICE",
-                        "order_id": "ORD-12345678",
-                        "description": "Cambio de aceite",
-                        "labor_estimated_cost": 50000,
-                        "components": [
-                            {
-                                "description": "Aceite sintético 5W-30",
-                                "estimated_cost": 80000
+                        "op": "ADD_SERVICE",
+                        "ts": "2025-03-01T09:05:00Z",
+                        "data": {
+                            "order_id": "R001",
+                            "service": {
+                                "description": "Engine repair",
+                                "labor_estimated_cost": "10000.00",
+                                "components": [
+                                    {
+                                        "description": "Oil pump",
+                                        "estimated_cost": "1500.00"
+                                    }
+                                ]
                             }
-                        ]
+                        }
+                    },
+                    {
+                        "op": "SET_STATE_DIAGNOSED",
+                        "ts": "2025-03-01T09:10:00Z",
+                        "data": {
+                            "order_id": "R001"
+                        }
+                    },
+                    {
+                        "op": "AUTHORIZE",
+                        "ts": "2025-03-01T09:11:00Z",
+                        "data": {
+                            "order_id": "R001"
+                        }
+                    },
+                    {
+                        "op": "SET_STATE_IN_PROGRESS",
+                        "ts": "2025-03-01T09:15:00Z",
+                        "data": {
+                            "order_id": "R001"
+                        }
+                    },
+                    {
+                        "op": "SET_REAL_COST",
+                        "ts": "2025-03-01T09:20:00Z",
+                        "data": {
+                            "order_id": "R001",
+                            "service_index": 1,
+                            "real_cost": "15000.00",
+                            "completed": True
+                        }
+                    },
+                    {
+                        "op": "TRY_COMPLETE",
+                        "ts": "2025-03-01T09:25:00Z",
+                        "data": {
+                            "order_id": "R001"
+                        }
                     }
                 ]
             }

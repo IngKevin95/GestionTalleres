@@ -139,7 +139,7 @@ class Orden:
             })
             raise ErrorDominio(
                 CodigoError.REQUIRES_REAUTH,
-                f"Costo real {self.total_real:.2f} excede 110% del autorizado {self.monto_autorizado:.2f}"
+                f"El costo real ({self.total_real:.2f}) excede el 110% del monto autorizado ({self.monto_autorizado:.2f}). Límite: {limite:.2f}."
             )
         
         self.estado = EstadoOrden.COMPLETED
