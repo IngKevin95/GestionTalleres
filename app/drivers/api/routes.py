@@ -206,15 +206,36 @@ def procesar_comandos(
     request_body: CommandsRequest,
     action_service: ActionService = Depends(obtener_action_service)
 ):
+    if not request_body.commands:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El campo 'commands' es requerido y no puede estar vacío"
+        )
+    
+    if len(request_body.commands) > 100:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Máximo 100 comandos por request"
+        )
+    
     orders_dict = {}
     events = []
     errors = []
     
-    for idx, comando_raw in enumerate(request_body.commands, 1):
-        comando = _normalizar_comando(comando_raw, idx)
-        _procesar_comando_individual(
-            comando, idx, action_service,
-            orders_dict, events, errors
+    try:
+        for idx, comando_raw in enumerate(request_body.commands, 1):
+            comando = _normalizar_comando(comando_raw, idx)
+            _procesar_comando_individual(
+                comando, idx, action_service,
+                orders_dict, events, errors
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error procesando comandos: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error al procesar comandos"
         )
     
     orders = list(orders_dict.values())
@@ -233,25 +254,41 @@ def procesar_comandos(
     "/orders",
     response_model=OrdenDTO,
     status_code=status.HTTP_201_CREATED,
-    tags=["Ordenes"]
+    tags=["Ordenes"],
+    summary="Crear orden",
+    description="Crea una nueva orden de reparación.",
+    response_description="Orden creada",
+    responses={
+        201: {
+            "description": "Orden creada exitosamente",
+        },
+        400: {
+            "description": "Error en los datos proporcionados",
+        }
+    }
 )
 def crear_orden(
     request: CreateOrderRequest,
     action_service: ActionService = Depends(obtener_action_service)
 ):
-    data = {
-        "customer": request.customer,
-        "vehicle": request.vehicle,
-        "order_id": request.order_id,
-        "ts": request.ts.isoformat() if request.ts else ahora().isoformat()
-    }
-    dto = json_a_crear_orden_dto(data)
-    from ...application.acciones.orden import CrearOrden
-    accion = CrearOrden(action_service.repo, action_service.auditoria)
     try:
+        data = {
+            "customer": request.customer,
+            "vehicle": request.vehicle,
+            "order_id": request.order_id,
+            "ts": request.ts
+        }
+        dto = json_a_crear_orden_dto(data)
+        from ...application.acciones.orden import CrearOrden
+        accion = CrearOrden(action_service.repo, action_service.auditoria)
         return accion.ejecutar(dto)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except ErrorDominio as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.mensaje)
+    except Exception as e:
+        logger.error(f"Error inesperado al crear orden: {str(e)}", exc_info=True)
+        raise
 
 
 @router.get(
@@ -591,7 +628,18 @@ def listar_clientes(
     repo_cliente: RepositorioClienteSQL = Depends(obtener_repositorio_cliente)
 ):
     clientes = repo_cliente.listar()
-    return ListClientesResponse(clientes=[cliente_a_dto(c) for c in clientes])
+    clientes_response = [
+        ClienteResponse(
+            id_cliente=c.id_cliente,
+            nombre=c.nombre,
+            identificacion=c.identificacion,
+            correo=c.correo,
+            direccion=c.direccion,
+            celular=c.celular
+        )
+        for c in clientes
+    ]
+    return ListClientesResponse(clientes=clientes_response)
 
 
 @router.get(
@@ -617,7 +665,14 @@ def obtener_cliente(
     cliente = repo_cliente.obtener(customer_id)
     if not cliente:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Cliente {customer_id} no encontrado")
-    return cliente_a_dto(cliente)
+    return ClienteResponse(
+        id_cliente=cliente.id_cliente,
+        nombre=cliente.nombre,
+        identificacion=cliente.identificacion,
+        correo=cliente.correo,
+        direccion=cliente.direccion,
+        celular=cliente.celular
+    )
 
 
 @router.post(
@@ -642,8 +697,23 @@ def crear_cliente(
     repo_cliente: RepositorioClienteSQL = Depends(obtener_repositorio_cliente)
 ):
     cliente = Cliente(nombre=request.nombre)
+    if request.identificacion:
+        cliente.identificacion = request.identificacion
+    if request.correo:
+        cliente.correo = request.correo
+    if request.direccion:
+        cliente.direccion = request.direccion
+    if request.celular:
+        cliente.celular = request.celular
     repo_cliente.guardar(cliente)
-    return cliente_a_dto(cliente)
+    return ClienteResponse(
+        id_cliente=cliente.id_cliente,
+        nombre=cliente.nombre,
+        identificacion=cliente.identificacion,
+        correo=cliente.correo,
+        direccion=cliente.direccion,
+        celular=cliente.celular
+    )
 
 
 @router.patch(
@@ -671,9 +741,25 @@ def actualizar_cliente(
     if not cliente:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Cliente {customer_id} no encontrado")
     
-    cliente.nombre = request.nombre
+    if request.nombre is not None:
+        cliente.nombre = request.nombre
+    if request.identificacion is not None:
+        cliente.identificacion = request.identificacion
+    if request.correo is not None:
+        cliente.correo = request.correo
+    if request.direccion is not None:
+        cliente.direccion = request.direccion
+    if request.celular is not None:
+        cliente.celular = request.celular
     repo_cliente.guardar(cliente)
-    return cliente_a_dto(cliente)
+    return ClienteResponse(
+        id_cliente=cliente.id_cliente,
+        nombre=cliente.nombre,
+        identificacion=cliente.identificacion,
+        correo=cliente.correo,
+        direccion=cliente.direccion,
+        celular=cliente.celular
+    )
 
 
 @router.get(
@@ -702,7 +788,20 @@ def obtener_vehiculos_cliente(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Cliente {customer_id} no encontrado")
     
     vehiculos = repo_vehiculo.listar_por_cliente(customer_id)
-    return ListVehiculosResponse(vehiculos=[vehiculo_a_dto(v, cliente.nombre) for v in vehiculos])
+    vehiculos_response = [
+        VehiculoResponse(
+            id_vehiculo=v.id_vehiculo,
+            descripcion=v.descripcion,
+            marca=v.marca,
+            modelo=v.modelo,
+            anio=v.anio,
+            kilometraje=v.kilometraje,
+            id_cliente=v.id_cliente,
+            cliente_nombre=cliente.nombre
+        )
+        for v in vehiculos
+    ]
+    return ListVehiculosResponse(vehiculos=vehiculos_response)
 
 
 @router.get(
@@ -723,12 +822,23 @@ def listar_vehiculos(
     repo_cliente: RepositorioClienteSQL = Depends(obtener_repositorio_cliente)
 ):
     vehiculos = repo_vehiculo.listar()
-    vehiculos_dto = []
+    vehiculos_response = []
     for v in vehiculos:
         cliente = repo_cliente.obtener(v.id_cliente)
         cliente_nombre = cliente.nombre if cliente else None
-        vehiculos_dto.append(vehiculo_a_dto(v, cliente_nombre))
-    return ListVehiculosResponse(vehiculos=vehiculos_dto)
+        vehiculos_response.append(
+            VehiculoResponse(
+                id_vehiculo=v.id_vehiculo,
+                descripcion=v.descripcion,
+                marca=v.marca,
+                modelo=v.modelo,
+                anio=v.anio,
+                kilometraje=v.kilometraje,
+                id_cliente=v.id_cliente,
+                cliente_nombre=cliente_nombre
+            )
+        )
+    return ListVehiculosResponse(vehiculos=vehiculos_response)
 
 
 @router.get(
@@ -758,7 +868,16 @@ def obtener_vehiculo(
     
     cliente = repo_cliente.obtener(vehiculo.id_cliente)
     cliente_nombre = cliente.nombre if cliente else None
-    return vehiculo_a_dto(vehiculo, cliente_nombre)
+    return VehiculoResponse(
+        id_vehiculo=vehiculo.id_vehiculo,
+        descripcion=vehiculo.descripcion,
+        marca=vehiculo.marca,
+        modelo=vehiculo.modelo,
+        anio=vehiculo.anio,
+        kilometraje=vehiculo.kilometraje,
+        id_cliente=vehiculo.id_cliente,
+        cliente_nombre=cliente_nombre
+    )
 
 
 @router.post(
@@ -795,10 +914,20 @@ def crear_vehiculo(
         id_cliente=request.id_cliente,
         marca=request.marca,
         modelo=request.modelo,
-        anio=request.anio
+        anio=request.anio,
+        kilometraje=request.kilometraje
     )
     repo_vehiculo.guardar(vehiculo)
-    return vehiculo_a_dto(vehiculo, cliente.nombre)
+    return VehiculoResponse(
+        id_vehiculo=vehiculo.id_vehiculo,
+        descripcion=vehiculo.descripcion,
+        marca=vehiculo.marca,
+        modelo=vehiculo.modelo,
+        anio=vehiculo.anio,
+        kilometraje=vehiculo.kilometraje,
+        id_cliente=vehiculo.id_cliente,
+        cliente_nombre=cliente.nombre
+    )
 
 
 @router.patch(
@@ -840,9 +969,20 @@ def actualizar_vehiculo(
         if not cliente_nuevo:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Cliente {request.id_cliente} no encontrado")
         vehiculo.id_cliente = request.id_cliente
+    if request.kilometraje is not None:
+        vehiculo.kilometraje = request.kilometraje
     
     repo_vehiculo.guardar(vehiculo)
     
     cliente = repo_cliente.obtener(vehiculo.id_cliente)
     cliente_nombre = cliente.nombre if cliente else None
-    return vehiculo_a_dto(vehiculo, cliente_nombre)
+    return VehiculoResponse(
+        id_vehiculo=vehiculo.id_vehiculo,
+        descripcion=vehiculo.descripcion,
+        marca=vehiculo.marca,
+        modelo=vehiculo.modelo,
+        anio=vehiculo.anio,
+        kilometraje=vehiculo.kilometraje,
+        id_cliente=vehiculo.id_cliente,
+        cliente_nombre=cliente_nombre
+    )
