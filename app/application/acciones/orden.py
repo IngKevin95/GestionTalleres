@@ -15,12 +15,14 @@ class CrearOrden:
         self.auditoria = auditoria
     
     def ejecutar(self, dto: CrearOrdenDTO) -> OrdenDTO:
-        if dto.order_id is not None:
-            orden_existente = self.repositorio.obtener(dto.order_id)
-            if orden_existente:
-                return orden_a_dto(orden_existente)
+        if not dto.order_id:
+            raise ErrorDominio(CodigoError.INVALID_OPERATION, "order_id es requerido")
         
-        orden = Orden(None, dto.cliente, dto.vehiculo, dto.timestamp)
+        orden_existente = self.repositorio.obtener(dto.order_id)
+        if orden_existente:
+            return orden_a_dto(orden_existente)
+        
+        orden = Orden(dto.order_id, dto.cliente, dto.vehiculo, dto.timestamp)
         orden.eventos.append(Evento("CREATED", ahora(), {}))
         
         self.repositorio.guardar(orden)

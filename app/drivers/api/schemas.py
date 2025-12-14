@@ -111,7 +111,7 @@ class SetStateRequest(BaseModel):
 class CreateOrderRequest(BaseModel):
     customer: str
     vehicle: str
-    order_id: Optional[int] = None
+    order_id: str
     ts: Optional[datetime] = None
 
 

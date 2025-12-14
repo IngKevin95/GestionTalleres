@@ -5,7 +5,7 @@ from ..domain.entidades import Orden, Evento
 
 class RepositorioOrden(ABC):
     @abstractmethod
-    def obtener(self, id_orden: int) -> Optional[Orden]:
+    def obtener(self, order_id: str) -> Optional[Orden]:
         pass
     
     @abstractmethod

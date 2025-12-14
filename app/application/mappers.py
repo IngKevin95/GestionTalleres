@@ -18,13 +18,14 @@ ZULU_TO_UTC_OFFSET = '+00:00'
 def json_a_crear_orden_dto(json_data: dict, ts_comando: Optional[str] = None) -> CrearOrdenDTO:
     ts = ts_comando or json_data.get("ts") or ahora().isoformat()
     ts_normalizado = ts.replace('Z', ZULU_TO_UTC_OFFSET)
-    order_id = json_data.get("order_id")
-    order_id_int = int(order_id) if order_id is not None else None
+    order_id = json_data.get("order_id", "")
+    if not order_id:
+        raise ValueError("order_id es requerido")
     return CrearOrdenDTO(
         cliente=json_data.get("customer", ""),
         vehiculo=json_data.get("vehicle", ""),
         timestamp=datetime.fromisoformat(ts_normalizado),
-        order_id=order_id_int
+        order_id=str(order_id)
     )
 
 
@@ -48,10 +49,9 @@ def json_a_agregar_servicio_dto(json_data: dict) -> AgregarServicioDTO:
         }
         componentes.append(tmp)
     
-    order_id_raw = json_data.get("order_id", "")
-    order_id_int = int(order_id_raw) if order_id_raw else 0
+    order_id = json_data.get("order_id", "")
     return AgregarServicioDTO(
-        order_id=order_id_int,
+        order_id=str(order_id),
         descripcion=descripcion,
         costo_mano_obra=a_decimal(labor_cost),
         componentes=componentes
@@ -59,26 +59,23 @@ def json_a_agregar_servicio_dto(json_data: dict) -> AgregarServicioDTO:
 
 
 def json_a_establecer_estado_diagnosticado_dto(json_data: dict) -> EstablecerEstadoDiagnosticadoDTO:
-    oid_raw = json_data.get("order_id", "")
-    oid = int(oid_raw) if oid_raw else 0
-    return EstablecerEstadoDiagnosticadoDTO(order_id=oid)
+    order_id = json_data.get("order_id", "")
+    return EstablecerEstadoDiagnosticadoDTO(order_id=str(order_id))
 
 
 def json_a_autorizar_dto(json_data: dict, ts_comando: Optional[str] = None) -> AutorizarDTO:
     ts = ts_comando or json_data.get("ts") or ahora().isoformat()
     ts_fixed = ts.replace('Z', ZULU_TO_UTC_OFFSET)
-    order_id_raw = json_data.get("order_id", "")
-    order_id_int = int(order_id_raw) if order_id_raw else 0
+    order_id = json_data.get("order_id", "")
     return AutorizarDTO(
-        order_id=order_id_int,
+        order_id=str(order_id),
         timestamp=datetime.fromisoformat(ts_fixed)
     )
 
 
 def json_a_establecer_estado_en_proceso_dto(json_data: dict) -> EstablecerEstadoEnProcesoTDTO:
-    order_id_raw = json_data.get("order_id", "")
-    order_id_int = int(order_id_raw) if order_id_raw else 0
-    return EstablecerEstadoEnProcesoTDTO(order_id=order_id_int)
+    order_id = json_data.get("order_id", "")
+    return EstablecerEstadoEnProcesoTDTO(order_id=str(order_id))
 
 
 def json_a_establecer_costo_real_dto(json_data: dict) -> EstablecerCostoRealDTO:
@@ -86,14 +83,13 @@ def json_a_establecer_costo_real_dto(json_data: dict) -> EstablecerCostoRealDTO:
     for comp_id, costo in json_data.get("components_real", {}).items():
         comps_real[int(comp_id)] = a_decimal(costo)
     
-    order_id_raw = json_data.get("order_id", "")
-    order_id_int = int(order_id_raw) if order_id_raw else 0
+    order_id = json_data.get("order_id", "")
     servicio_id_raw = json_data.get("service_id")
     servicio_id_int = int(servicio_id_raw) if servicio_id_raw is not None else None
     
     return EstablecerCostoRealDTO(
         costo_real=a_decimal(json_data.get("real_cost", 0)),
-        order_id=order_id_int,
+        order_id=str(order_id),
         servicio_id=servicio_id_int,
         service_index=json_data.get("service_index"),
         componentes_reales=comps_real,
@@ -102,31 +98,27 @@ def json_a_establecer_costo_real_dto(json_data: dict) -> EstablecerCostoRealDTO:
 
 
 def json_a_intentar_completar_dto(json_data: dict) -> IntentarCompletarDTO:
-    oid_raw = json_data.get("order_id", "")
-    oid = int(oid_raw) if oid_raw else 0
-    return IntentarCompletarDTO(order_id=oid)
+    order_id = json_data.get("order_id", "")
+    return IntentarCompletarDTO(order_id=str(order_id))
 
 
 def json_a_reautorizar_dto(json_data: dict, ts_comando: Optional[str] = None) -> ReautorizarDTO:
     ts = ts_comando or json_data.get("ts") or ahora().isoformat()
-    oid_raw = json_data.get("order_id", "")
-    oid = int(oid_raw) if oid_raw else 0
+    order_id = json_data.get("order_id", "")
     monto = a_decimal(json_data.get("new_authorized_amount", 0))
     ts_parsed = datetime.fromisoformat(ts.replace('Z', ZULU_TO_UTC_OFFSET))
-    return ReautorizarDTO(order_id=oid, nuevo_monto_autorizado=monto, timestamp=ts_parsed)
+    return ReautorizarDTO(order_id=str(order_id), nuevo_monto_autorizado=monto, timestamp=ts_parsed)
 
 
 def json_a_entregar_dto(json_data: dict) -> EntregarDTO:
-    order_id_raw = json_data.get("order_id", "")
-    order_id_int = int(order_id_raw) if order_id_raw else 0
-    return EntregarDTO(order_id=order_id_int)
+    order_id = json_data.get("order_id", "")
+    return EntregarDTO(order_id=str(order_id))
 
 
 def json_a_cancelar_dto(json_data: dict) -> CancelarDTO:
-    order_id_raw = json_data.get("order_id", "")
-    order_id_int = int(order_id_raw) if order_id_raw else 0
+    order_id = json_data.get("order_id", "")
     return CancelarDTO(
-        order_id=order_id_int,
+        order_id=str(order_id),
         motivo=json_data.get("reason", "")
     )
 
@@ -161,7 +153,7 @@ def servicio_a_dto(servicio: Servicio) -> ServicioDTO:
     )
 
 
-def evento_a_dto(evento: Evento, order_id: int) -> EventoDTO:
+def evento_a_dto(evento: Evento, order_id: str) -> EventoDTO:
     return EventoDTO(
         order_id=order_id,
         type=evento.tipo
@@ -169,8 +161,8 @@ def evento_a_dto(evento: Evento, order_id: int) -> EventoDTO:
 
 
 def orden_a_dto(orden: Orden) -> OrdenDTO:
-    if orden.id_orden is None:
-        raise ValueError("Orden debe tener id_orden asignado")
+    if not orden.order_id:
+        raise ValueError("Orden debe tener order_id asignado")
     
     subtotal = sum(s.calcular_subtotal_estimado() for s in orden.servicios)
     
@@ -180,12 +172,12 @@ def orden_a_dto(orden: Orden) -> OrdenDTO:
     
     eventos_dto = []
     for e in orden.eventos:
-        eventos_dto.append(evento_a_dto(e, orden.id_orden))
+        eventos_dto.append(evento_a_dto(e, orden.order_id))
     
     auth_amount = f"{orden.monto_autorizado:.2f}" if orden.monto_autorizado else None
     
     return OrdenDTO(
-        order_id=orden.id_orden,
+        order_id=orden.order_id,
         status=orden.estado.value,
         customer=orden.cliente,
         vehicle=orden.vehiculo,

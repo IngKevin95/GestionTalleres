@@ -6,7 +6,8 @@ from .base import Base, fecha_creacion_default
 class OrdenModel(Base):
     __tablename__ = "ordenes"
     
-    id_orden = Column(Integer, primary_key=True, autoincrement=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    order_id = Column(String, unique=True, nullable=False)
     id_cliente = Column(Integer, ForeignKey("clientes.id_cliente", ondelete="RESTRICT"), nullable=False)
     id_vehiculo = Column(Integer, ForeignKey("vehiculos.id_vehiculo", ondelete="RESTRICT"), nullable=False)
     estado = Column(String, nullable=False)

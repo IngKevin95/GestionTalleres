@@ -24,8 +24,8 @@ class RepositorioOrden(IRepositorioOrden):
         self.repo_cliente = RepositorioClienteSQL(sesion)
         self.repo_vehiculo = RepositorioVehiculoSQL(sesion)
     
-    def obtener(self, id_orden: int) -> Optional[Orden]:
-        m = self.sesion.query(OrdenModel).filter(OrdenModel.id_orden == id_orden).first()
+    def obtener(self, order_id: str) -> Optional[Orden]:
+        m = self.sesion.query(OrdenModel).filter(OrdenModel.order_id == order_id).first()
         if m is None:
             return None
         
@@ -36,29 +36,33 @@ class RepositorioOrden(IRepositorioOrden):
         cliente = self.repo_cliente.buscar_o_crear_por_nombre(orden.cliente)
         vehiculo = self.repo_vehiculo.buscar_o_crear_por_descripcion(orden.vehiculo, cliente.id_cliente)
         
-        if orden.id_orden is not None:
-            modelo = self.sesion.query(OrdenModel).filter(OrdenModel.id_orden == orden.id_orden).first()
-            if modelo:
-                self._actualizar_modelo(modelo, orden, cliente.id_cliente, vehiculo.id_vehiculo)
-            else:
-                modelo = self._serializar(orden, cliente.id_cliente, vehiculo.id_vehiculo)
-                self.sesion.add(modelo)
+        modelo = self.sesion.query(OrdenModel).filter(OrdenModel.order_id == orden.order_id).first()
+        
+        if modelo:
+            if orden.id is not None and modelo.id != orden.id:
+                raise ValueError(f"order_id '{orden.order_id}' ya existe con un id diferente")
+            self._actualizar_modelo(modelo, orden, cliente.id_cliente, vehiculo.id_vehiculo)
+            orden.id = modelo.id
         else:
+            if orden.id is not None:
+                modelo_existente = self.sesion.query(OrdenModel).filter(OrdenModel.id == orden.id).first()
+                if modelo_existente:
+                    raise ValueError(f"Ya existe una orden con id {orden.id}")
             modelo = self._serializar(orden, cliente.id_cliente, vehiculo.id_vehiculo)
             self.sesion.add(modelo)
+            self.sesion.flush()
+            orden.id = modelo.id
         
-        self.sesion.flush()
-        if orden.id_orden is None:
-            orden.id_orden = modelo.id_orden
-        self.repo_servicio.guardar_servicios(modelo.id_orden, orden.servicios, modelo.servicios)
-        self.repo_evento.guardar_eventos(modelo.id_orden, orden.eventos, modelo.eventos)
+        self.repo_servicio.guardar_servicios(modelo.id, orden.servicios, modelo.servicios)
+        self.repo_evento.guardar_eventos(modelo.id, orden.eventos, modelo.eventos)
         self.sesion.commit()
         
     
     def _serializar(self, orden: Orden, id_cliente: int, id_vehiculo: int) -> OrdenModel:
         monto_str = str(orden.monto_autorizado) if orden.monto_autorizado else None
         return OrdenModel(
-            id_orden=orden.id_orden,
+            id=orden.id,
+            order_id=orden.order_id,
             id_cliente=id_cliente,
             id_vehiculo=id_vehiculo,
             estado=orden.estado.value,
@@ -86,10 +90,11 @@ class RepositorioOrden(IRepositorioOrden):
         vehiculo_desc = m.vehiculo.descripcion if m.vehiculo else ""
         
         orden = Orden(
-            id_orden=m.id_orden,
+            order_id=m.order_id,
             cliente=cliente_nombre,
             vehiculo=vehiculo_desc,
-            fecha_creacion=m.fecha_creacion
+            fecha_creacion=m.fecha_creacion,
+            id=m.id
         )
         orden.estado = EstadoOrden(m.estado)
         orden.servicios = servicios

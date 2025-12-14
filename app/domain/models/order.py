@@ -11,8 +11,9 @@ from .event import Evento
 
 
 class Orden:
-    def __init__(self, id_orden: Optional[int], cliente: str, vehiculo: str, fecha_creacion: datetime):
-        self.id_orden = id_orden
+    def __init__(self, order_id: str, cliente: str, vehiculo: str, fecha_creacion: datetime, id: Optional[int] = None):
+        self.id = id
+        self.order_id = order_id
         self.cliente = cliente
         self.vehiculo = vehiculo
         self.estado = EstadoOrden.CREATED

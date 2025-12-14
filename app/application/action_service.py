@@ -31,11 +31,12 @@ class ActionService:
         op = comando.get("op")
         data = comando.get("data", {})
         ts_comando = comando.get("ts")
-        order_id_raw = data.get("order_id")
-        order_id = int(order_id_raw) if order_id_raw is not None else None
+        order_id = data.get("order_id")
+        if isinstance(order_id, (int, float)):
+            order_id = str(order_id)
         
         evts_ant = 0
-        if order_id is not None:
+        if order_id:
             orden_ant = self.repo.obtener(order_id)
             if orden_ant:
                 evts_ant = len(orden_ant.eventos)

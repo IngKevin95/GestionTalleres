@@ -7,7 +7,7 @@ class EventoModel(Base):
     __tablename__ = "eventos"
     
     id_evento = Column(Integer, primary_key=True, autoincrement=True)
-    id_orden = Column(Integer, ForeignKey("ordenes.id_orden", ondelete="CASCADE"), nullable=False)
+    id_orden = Column(Integer, ForeignKey("ordenes.id", ondelete="CASCADE"), nullable=False)
     tipo = Column(String, nullable=False)
     timestamp = Column(DateTime, nullable=False)
     metadatos_json = Column(Text, nullable=True)
