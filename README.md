@@ -345,7 +345,97 @@ El endpoint principal es `POST /commands` que procesa un batch de comandos en un
 - `POST /orders/{order_id}/cancel` - Cancela una orden
 - `GET /health` - Health check de API y base de datos
 
-También hay endpoints para gestionar clientes y vehículos si los necesitas.
+### Endpoints de Clientes y Vehículos
+
+El sistema incluye endpoints completos para gestionar clientes y vehículos con identificación flexible:
+
+**Clientes:**
+- `GET /customers` - Lista todos los clientes
+- `GET /customers?{id_cliente|identificacion|nombre}` - Obtiene un cliente por ID, identificación o nombre
+- `POST /customers` - Crea un cliente (si ya existe, retorna el existente)
+- `PATCH /customers?{id_cliente|identificacion|nombre}` - Actualiza un cliente identificado flexiblemente
+
+**Vehículos:**
+- `GET /vehicles` - Lista todos los vehículos
+- `GET /vehicles?{id_vehiculo|placa}` - Obtiene un vehículo por ID o placa
+- `GET /customers/vehicles?{id_cliente|identificacion|nombre}` - Obtiene vehículos de un cliente
+- `POST /vehicles` - Crea un vehículo (si ya existe, retorna el existente)
+- `PATCH /vehicles?{id_vehiculo|placa}` - Actualiza vehículo usando query parameters
+- `PATCH /vehicles/{vehicle_identifier}` - Actualiza vehículo usando path parameter (ID numérico o placa)
+
+#### Identificación Flexible
+
+Tanto clientes como vehículos pueden identificarse de múltiples formas:
+
+**Clientes:**
+- Por `id_cliente` (número)
+- Por `identificacion` (string único)
+- Por `nombre` (string único)
+
+**Vehículos:**
+- Por `id_vehiculo` (número)
+- Por `placa` (string único)
+
+Ejemplos:
+```bash
+# Obtener cliente por nombre
+GET /customers?nombre=Juan Pérez
+
+# Obtener vehículo por placa
+GET /vehicles?placa=ABC-123
+
+# Actualizar vehículo usando placa en el path
+PATCH /vehicles/ABC-123
+{
+  "customer": "Kevin"
+}
+```
+
+#### Find-or-Create (Búsqueda o Creación)
+
+Al crear órdenes, clientes o vehículos, el sistema implementa lógica **find-or-create**:
+
+- Si el cliente/vehículo ya existe (según los criterios de identificación), se usa el existente
+- Si no existe, se crea uno nuevo
+- Esto evita duplicados y simplifica el uso de la API
+
+**Ejemplo de creación de orden:**
+```json
+{
+  "customer": {
+    "nombre": "Juan Pérez"
+  },
+  "vehicle": {
+    "placa": "ABC-123"
+  },
+  "order_id": "ORD-001"
+}
+```
+
+Si el cliente "Juan Pérez" ya existe, se relaciona la orden con ese cliente. Lo mismo aplica para el vehículo con placa "ABC-123".
+
+#### Transferencia de Propiedad de Vehículos
+
+Los vehículos pueden transferirse entre clientes mediante actualización:
+
+```bash
+# Transferir vehículo ABC-123 al cliente "Kevin"
+PATCH /vehicles/ABC-123
+{
+  "customer": "Kevin"
+}
+```
+
+El sistema valida que el cliente destino exista y actualiza la relación. Si intentas crear una orden con un vehículo que ya está registrado a otro cliente, recibirás un error específico indicando que debes actualizar el vehículo primero.
+
+#### Restricciones de Unicidad
+
+Los siguientes campos son únicos en la base de datos:
+- `clientes.identificacion` - Identificación del cliente
+- `clientes.nombre` - Nombre del cliente
+- `vehiculos.placa` - Placa del vehículo
+
+Si intentas crear un cliente o vehículo con un valor duplicado, el sistema retornará un error de validación.
 
 ### Formato de Comandos
 
@@ -396,7 +486,9 @@ Las reglas principales que implementa el sistema:
 - **Límite 110%**: Cuando intentas completar una orden, si el `total_real` excede el 110% del `monto_autorizado`, la orden pasa a estado `WAITING_FOR_APPROVAL` y necesitas reautorizar.
 - **Redondeo**: Usa half-even (banker's rounding) a 2 decimales en todos los cálculos monetarios. No uses float para dinero, siempre Decimal.
 - **Máquina de estados**: Las transiciones están bien definidas. No puedes saltarte estados (ej: no puedes autorizar sin haber diagnosticado primero).
-- **Clientes y Vehículos**: Se crean automáticamente si no existen. Solo pasas el nombre del cliente y la descripción del vehículo como strings, el sistema se encarga del resto.
+- **Clientes y Vehículos**: Se crean automáticamente si no existen mediante lógica find-or-create. Puedes identificarlos por múltiples criterios (ID, identificación, nombre para clientes; ID, placa para vehículos).
+- **Unicidad**: Los campos `identificacion`, `nombre` (clientes) y `placa` (vehículos) son únicos en la base de datos.
+- **Transferencia de Propiedad**: Los vehículos pueden transferirse entre clientes actualizando el campo `customer` en el endpoint de actualización.
 - **Versiones de autorización**: Cada reautorización incrementa la versión, así puedes rastrear cuántas veces se reautorizó una orden.
 
 ## Características Técnicas
@@ -414,7 +506,29 @@ Algunas cosas que están implementadas:
 
 El código interno está en español (clases, métodos, variables), pero la API acepta y retorna JSON con keys en inglés para mantener compatibilidad con contratos existentes. El mapeo entre ambos se hace en la capa de mappers.
 
-Los campos `customer` y `vehicle` en el JSON se aceptan como strings simples. El sistema busca si ese cliente/vehículo ya existe en la BD y si no, lo crea automáticamente. Esto simplifica bastante el uso de la API.
+Los campos `customer` y `vehicle` en el JSON pueden ser strings simples o objetos con criterios de identificación flexibles. El sistema busca si ese cliente/vehículo ya existe en la BD (por ID, identificación, nombre para clientes; por ID o placa para vehículos) y si no, lo crea automáticamente. Esto simplifica bastante el uso de la API y evita duplicados.
+
+**Ejemplo de creación de orden con identificación flexible:**
+```json
+{
+  "customer": {
+    "nombre": "Juan Pérez"
+  },
+  "vehicle": {
+    "placa": "ABC-123"
+  },
+  "order_id": "ORD-001"
+}
+```
+
+O también puedes usar strings simples (compatibilidad hacia atrás):
+```json
+{
+  "customer": "Juan Pérez",
+  "vehicle": "ABC-123",
+  "order_id": "ORD-001"
+}
+```
 
 Todos los cálculos monetarios usan `Decimal` desde el inicio. No hay conversiones a float en ninguna parte del código, lo que evita los problemas típicos de precisión flotante.
 

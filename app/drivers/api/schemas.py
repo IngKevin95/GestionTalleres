@@ -275,6 +275,20 @@ class VehiculoResponse(BaseModel):
 
 
 class CreateVehiculoRequest(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "placa": "ABC-123",
+                "customer": {
+                    "nombre": "Juan Pérez"
+                },
+                "marca": "Toyota",
+                "modelo": "Corolla",
+                "anio": 2020,
+                "kilometraje": 50000
+            }
+        }
+    )
     placa: str
     customer: CustomerIdentifier
     marca: Optional[str] = None
@@ -284,6 +298,37 @@ class CreateVehiculoRequest(BaseModel):
 
 
 class UpdateVehiculoRequest(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "description": "Actualizar cliente usando nombre (string simple)",
+                    "value": {
+                        "customer": "Kevin"
+                    }
+                },
+                {
+                    "description": "Actualizar cliente usando objeto completo",
+                    "value": {
+                        "customer": {
+                            "nombre": "Kevin"
+                        }
+                    }
+                },
+                {
+                    "description": "Actualizar múltiples campos",
+                    "value": {
+                        "customer": {
+                            "id_cliente": 1
+                        },
+                        "marca": "Honda",
+                        "modelo": "Civic",
+                        "anio": 2021
+                    }
+                }
+            ]
+        }
+    )
     placa: Optional[str] = None
     customer: Optional[Union[CustomerIdentifier, str]] = None
     marca: Optional[str] = None
