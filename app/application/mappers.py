@@ -13,9 +13,9 @@ from .dtos import (
 )
 
 
-ZULU_TO_UTC_OFFSET = '+00:00'
+ZULU_OFFSET = '+00:00'
 
-def json_a_crear_orden_dto(json_data: dict, ts_comando: Optional[str] = None) -> CrearOrdenDTO:
+def crear_orden_dto(json_data: dict, ts_comando: Optional[str] = None) -> CrearOrdenDTO:
     order_id = json_data.get("order_id", "")
     if not order_id or not str(order_id).strip():
         raise ValueError("order_id es requerido y no puede estar vacío")
@@ -59,7 +59,7 @@ def json_a_crear_orden_dto(json_data: dict, ts_comando: Optional[str] = None) ->
     if not ts or (isinstance(ts, str) and not ts.strip()):
         ts = ahora().isoformat()
     
-    ts_normalizado = str(ts).replace('Z', ZULU_TO_UTC_OFFSET)
+    ts_normalizado = str(ts).replace('Z', ZULU_OFFSET)
     
     customer_extra = None
     if isinstance(customer_data, dict):
@@ -92,96 +92,87 @@ def json_a_crear_orden_dto(json_data: dict, ts_comando: Optional[str] = None) ->
     )
 
 
-def json_a_agregar_servicio_dto(json_data: dict) -> AgregarServicioDTO:
-    service_obj = json_data.get("service")
-    if service_obj:
-        descripcion = service_obj.get("description", "")
-        labor_cost = service_obj.get("labor_estimated_cost", 0)
-        components = service_obj.get("components", [])
+def agregar_servicio_dto(json_data: dict) -> AgregarServicioDTO:
+    srv = json_data.get("service")
+    if srv:
+        desc = srv.get("description", "")
+        labor = srv.get("labor_estimated_cost", 0)
+        comps = srv.get("components", [])
     else:
-        descripcion = json_data.get("description", "")
-        labor_cost = json_data.get("labor_estimated_cost", 0)
-        components = json_data.get("components", [])
+        desc = json_data.get("description", "")
+        labor = json_data.get("labor_estimated_cost", 0)
+        comps = json_data.get("components", [])
     
-    # Normalizar componentes
     componentes = []
-    for comp in components:
-        tmp = {
-            "description": comp.get("description", ""),
-            "estimated_cost": str(comp.get("estimated_cost", 0))
-        }
-        componentes.append(tmp)
+    for c in comps:
+        componentes.append({
+            "description": c.get("description", ""),
+            "estimated_cost": str(c.get("estimated_cost", 0))
+        })
     
-    order_id = json_data.get("order_id", "")
     return AgregarServicioDTO(
-        order_id=str(order_id),
-        descripcion=descripcion,
-        costo_mano_obra=a_decimal(labor_cost),
+        order_id=str(json_data.get("order_id", "")),
+        descripcion=desc,
+        costo_mano_obra=a_decimal(labor),
         componentes=componentes
     )
 
 
-def json_a_establecer_estado_diagnosticado_dto(json_data: dict) -> EstablecerEstadoDiagnosticadoDTO:
-    order_id = json_data.get("order_id", "")
-    return EstablecerEstadoDiagnosticadoDTO(order_id=str(order_id))
+def estado_diagnosticado_dto(json_data: dict) -> EstablecerEstadoDiagnosticadoDTO:
+    return EstablecerEstadoDiagnosticadoDTO(order_id=str(json_data.get("order_id", "")))
 
 
-def json_a_autorizar_dto(json_data: dict, ts_comando: Optional[str] = None) -> AutorizarDTO:
+def autorizar_dto(json_data: dict, ts_comando: Optional[str] = None) -> AutorizarDTO:
     ts = ts_comando or json_data.get("ts") or ahora().isoformat()
-    ts_fixed = ts.replace('Z', ZULU_TO_UTC_OFFSET)
-    order_id = json_data.get("order_id", "")
+    ts_fixed = ts.replace('Z', ZULU_OFFSET)
     return AutorizarDTO(
-        order_id=str(order_id),
+        order_id=str(json_data.get("order_id", "")),
         timestamp=datetime.fromisoformat(ts_fixed)
     )
 
 
-def json_a_establecer_estado_en_proceso_dto(json_data: dict) -> EstablecerEstadoEnProcesoTDTO:
-    order_id = json_data.get("order_id", "")
-    return EstablecerEstadoEnProcesoTDTO(order_id=str(order_id))
+def estado_en_proceso_dto(json_data: dict) -> EstablecerEstadoEnProcesoTDTO:
+    return EstablecerEstadoEnProcesoTDTO(order_id=str(json_data.get("order_id", "")))
 
 
-def json_a_establecer_costo_real_dto(json_data: dict) -> EstablecerCostoRealDTO:
+def costo_real_dto(json_data: dict) -> EstablecerCostoRealDTO:
     comps_real = {}
     for comp_id, costo in json_data.get("components_real", {}).items():
         comps_real[int(comp_id)] = a_decimal(costo)
     
-    order_id = json_data.get("order_id", "")
-    servicio_id_raw = json_data.get("service_id")
-    servicio_id_int = int(servicio_id_raw) if servicio_id_raw is not None else None
-    
+    srv_id = json_data.get("service_id")
     return EstablecerCostoRealDTO(
         costo_real=a_decimal(json_data.get("real_cost", 0)),
-        order_id=str(order_id),
-        servicio_id=servicio_id_int,
+        order_id=str(json_data.get("order_id", "")),
+        servicio_id=int(srv_id) if srv_id is not None else None,
         service_index=json_data.get("service_index"),
         componentes_reales=comps_real,
         completed=json_data.get("completed")
     )
 
 
-def json_a_intentar_completar_dto(json_data: dict) -> IntentarCompletarDTO:
-    order_id = json_data.get("order_id", "")
-    return IntentarCompletarDTO(order_id=str(order_id))
+def intentar_completar_dto(json_data: dict) -> IntentarCompletarDTO:
+    return IntentarCompletarDTO(order_id=str(json_data.get("order_id", "")))
 
 
-def json_a_reautorizar_dto(json_data: dict, ts_comando: Optional[str] = None) -> ReautorizarDTO:
+def reautorizar_dto(json_data: dict, ts_comando: Optional[str] = None) -> ReautorizarDTO:
     ts = ts_comando or json_data.get("ts") or ahora().isoformat()
-    order_id = json_data.get("order_id", "")
     monto = a_decimal(json_data.get("new_authorized_amount", 0))
-    ts_parsed = datetime.fromisoformat(ts.replace('Z', ZULU_TO_UTC_OFFSET))
-    return ReautorizarDTO(order_id=str(order_id), nuevo_monto_autorizado=monto, timestamp=ts_parsed)
+    ts_parsed = datetime.fromisoformat(ts.replace('Z', ZULU_OFFSET))
+    return ReautorizarDTO(
+        order_id=str(json_data.get("order_id", "")),
+        nuevo_monto_autorizado=monto,
+        timestamp=ts_parsed
+    )
 
 
-def json_a_entregar_dto(json_data: dict) -> EntregarDTO:
-    order_id = json_data.get("order_id", "")
-    return EntregarDTO(order_id=str(order_id))
+def entregar_dto(json_data: dict) -> EntregarDTO:
+    return EntregarDTO(order_id=str(json_data.get("order_id", "")))
 
 
-def json_a_cancelar_dto(json_data: dict) -> CancelarDTO:
-    order_id = json_data.get("order_id", "")
+def cancelar_dto(json_data: dict) -> CancelarDTO:
     return CancelarDTO(
-        order_id=str(order_id),
+        order_id=str(json_data.get("order_id", "")),
         motivo=json_data.get("reason", "")
     )
 

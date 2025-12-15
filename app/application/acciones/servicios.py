@@ -8,38 +8,38 @@ from ..mappers import orden_a_dto
 
 
 class AgregarServicio:
-    def __init__(self, repositorio: RepositorioOrden, auditoria: AlmacenEventos):
-        self.repositorio = repositorio
+    def __init__(self, repo: RepositorioOrden, auditoria: AlmacenEventos):
+        self.repo = repo
         self.auditoria = auditoria
     
     def ejecutar(self, dto: AgregarServicioDTO) -> OrdenDTO:
-        orden = self.repositorio.obtener(dto.order_id)
+        orden = self.repo.obtener(dto.order_id)
         if orden is None:
             raise ErrorDominio(CodigoError.ORDER_NOT_FOUND, f"Orden {dto.order_id} no existe")
         
         comps = self._crear_componentes(dto.componentes)
-        serv = Servicio(
+        srv = Servicio(
             descripcion=dto.descripcion,
             costo_mano_obra_estimado=dto.costo_mano_obra,
             componentes=comps
         )
         
-        orden.agregar_servicio(serv)
-        self.repositorio.guardar(orden)
+        orden.agregar_servicio(srv)
+        self.repo.guardar(orden)
         return orden_a_dto(orden)
     
     def _crear_componentes(self, componentes_data):
         comps = []
         for comp_data in componentes_data:
-            costo_estimado = a_decimal(comp_data.get("estimated_cost", 0))
-            if costo_estimado < 0:
+            costo = a_decimal(comp_data.get("estimated_cost", 0))
+            if costo < 0:
                 raise ErrorDominio(
                     CodigoError.INVALID_AMOUNT,
-                    f"El costo estimado del componente debe ser positivo, se recibió: {costo_estimado}"
+                    f"Costo estimado debe ser positivo, se recibió: {costo}"
                 )
             comps.append(Componente(
                 descripcion=comp_data.get("description", ""),
-                costo_estimado=costo_estimado
+                costo_estimado=costo
             ))
         return comps
 

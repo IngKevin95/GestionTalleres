@@ -25,12 +25,12 @@ class RepositorioOrden(IRepositorioOrden):
         self.repo_vehiculo = RepositorioVehiculoSQL(sesion)
     
     def obtener(self, order_id: str) -> Optional[Orden]:
-        m = self.sesion.query(OrdenModel).filter(OrdenModel.order_id == order_id).first()
-        if m is None:
+        modelo = self.sesion.query(OrdenModel).filter(OrdenModel.order_id == order_id).first()
+        if modelo is None:
             return None
         
         self.sesion.expire_all()
-        return self._deserializar(m)
+        return self._deserializar(modelo)
     
     def guardar(self, orden: Orden) -> None:
         cliente = self.repo_cliente.buscar_o_crear_por_nombre(orden.cliente)
@@ -73,35 +73,35 @@ class RepositorioOrden(IRepositorioOrden):
             fecha_cancelacion=orden.fecha_cancelacion
         )
     
-    def _actualizar_modelo(self, m: OrdenModel, orden: Orden, id_cliente: int, id_vehiculo: int) -> None:
-        m.id_cliente = id_cliente
-        m.id_vehiculo = id_vehiculo
-        m.estado = orden.estado.value
-        m.monto_autorizado = str(orden.monto_autorizado) if orden.monto_autorizado else None
-        m.version_autorizacion = orden.version_autorizacion
-        m.total_real = str(orden.total_real)
-        m.fecha_cancelacion = orden.fecha_cancelacion
+    def _actualizar_modelo(self, modelo: OrdenModel, orden: Orden, id_cliente: int, id_vehiculo: int) -> None:
+        modelo.id_cliente = id_cliente
+        modelo.id_vehiculo = id_vehiculo
+        modelo.estado = orden.estado.value
+        modelo.monto_autorizado = str(orden.monto_autorizado) if orden.monto_autorizado else None
+        modelo.version_autorizacion = orden.version_autorizacion
+        modelo.total_real = str(orden.total_real)
+        modelo.fecha_cancelacion = orden.fecha_cancelacion
     
-    def _deserializar(self, m: OrdenModel) -> Orden:
-        servicios = self.repo_servicio.deserializar_servicios(m.servicios)
-        eventos = self.repo_evento.deserializar_eventos(m.eventos)
+    def _deserializar(self, modelo: OrdenModel) -> Orden:
+        servicios = self.repo_servicio.deserializar_servicios(modelo.servicios)
+        eventos = self.repo_evento.deserializar_eventos(modelo.eventos)
         
-        cliente_nombre = m.cliente.nombre if m.cliente else ""
-        vehiculo_placa = m.vehiculo.placa if m.vehiculo else ""
+        cliente_nombre = modelo.cliente.nombre if modelo.cliente else ""
+        vehiculo_placa = modelo.vehiculo.placa if modelo.vehiculo else ""
         
         orden = Orden(
-            order_id=m.order_id,
+            order_id=modelo.order_id,
             cliente=cliente_nombre,
             vehiculo=vehiculo_placa,
-            fecha_creacion=m.fecha_creacion,
-            id=m.id
+            fecha_creacion=modelo.fecha_creacion,
+            id=modelo.id
         )
-        orden.estado = EstadoOrden(m.estado)
+        orden.estado = EstadoOrden(modelo.estado)
         orden.servicios = servicios
         orden.eventos = eventos
-        orden.monto_autorizado = a_decimal(m.monto_autorizado) if m.monto_autorizado else None
-        orden.version_autorizacion = m.version_autorizacion
-        orden.total_real = a_decimal(m.total_real)
-        orden.fecha_cancelacion = m.fecha_cancelacion
+        orden.monto_autorizado = a_decimal(modelo.monto_autorizado) if modelo.monto_autorizado else None
+        orden.version_autorizacion = modelo.version_autorizacion
+        orden.total_real = a_decimal(modelo.total_real)
+        orden.fecha_cancelacion = modelo.fecha_cancelacion
         
         return orden

@@ -23,50 +23,19 @@ logger = obtener_logger("app.drivers.api.main")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     configurar_logging()
-    logger.info("Iniciando aplicación GestionTalleres API")
+    logger.info("Iniciando aplicación")
     
     try:
         crear_engine_bd()
-        logger.info("Conexión a base de datos establecida")
     except Exception as e:
-        logger.error(f"Error al conectar a base de datos: {str(e)}", exc_info=True)
+        logger.error(f"Error BD: {str(e)}", exc_info=True)
     
     yield
-    
-    logger.info("Cerrando aplicación GestionTalleres API")
 
 
 app = FastAPI(
     title="GestionTalleres API",
     version="1.0.0",
-    description="""
-    API para gestionar el ciclo de vida de órdenes de reparación en una red de talleres automotrices.
-    
-    ## Funcionalidades
-    
-    * Crear órdenes de reparación
-    * Agregar servicios y componentes
-    * Controlar estados de las órdenes
-    * Registrar costos estimados y reales
-    * Manejar autorizaciones y reautorizaciones
-    * Mantener trazabilidad del proceso
-    
-    ## Estados de Orden
-    
-    * **CREATED**: Orden creada
-    * **DIAGNOSED**: Diagnóstico realizado
-    * **AUTHORIZED**: Autorizada para reparación
-    * **IN_PROGRESS**: En proceso de reparación
-    * **WAITING_FOR_APPROVAL**: Esperando reautorización
-    * **COMPLETED**: Reparación completada
-    * **DELIVERED**: Entregada al cliente
-    * **CANCELLED**: Cancelada
-    """,
-    contact={
-        "name": "GestionTalleres",
-    },
-
-
     lifespan=lifespan
 )
 
@@ -98,71 +67,40 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     try:
         body = await request.body()
         if body:
-            body_str = body.decode("utf-8")
             try:
-                body_json = json.loads(body_str)
-            except Exception:
-                body_json = {"raw": body_str[:1000]}
-    except Exception:
+                body_json = json.loads(body.decode("utf-8"))
+            except:
+                body_json = {"raw": body.decode("utf-8")[:500]}
+    except:
         pass
     
     error_detail = exc.errors()
-    
-    mensajes_error = []
-    for error in error_detail:
-        campo = " -> ".join(str(loc) for loc in error.get("loc", []))
-        tipo_error = error.get("type", "unknown")
-        mensaje = error.get("msg", "Error de validación")
+    mensajes = []
+    for err in error_detail:
+        campo = " -> ".join(str(loc) for loc in err.get("loc", []))
+        tipo = err.get("type", "unknown")
+        msg = err.get("msg", "Error de validación")
         
-        mensaje_legible = f"Campo '{campo}': {mensaje}"
-        if tipo_error == "string_too_short":
-            mensaje_legible = f"Campo '{campo}' es requerido y no puede estar vacío"
-        elif tipo_error == "missing":
-            mensaje_legible = f"Campo '{campo}' es requerido"
-        elif tipo_error == "value_error":
-            mensaje_legible = f"Campo '{campo}' tiene un valor inválido: {mensaje}"
-        elif tipo_error == "type_error":
-            mensaje_legible = f"Campo '{campo}' tiene un tipo incorrecto. {mensaje}"
-        
-        mensajes_error.append(mensaje_legible)
+        if tipo == "string_too_short":
+            mensajes.append(f"Campo '{campo}' es requerido y no puede estar vacío")
+        elif tipo == "missing":
+            mensajes.append(f"Campo '{campo}' es requerido")
+        elif tipo == "value_error":
+            mensajes.append(f"Campo '{campo}': {msg}")
+        else:
+            mensajes.append(f"Campo '{campo}': {msg}")
     
-    error_response = {
-        "detail": mensajes_error,
-        "errors": error_detail,
-        "message": f"Error de validación: {len(error_detail)} campo(s) con problemas"
-    }
-    
-    logger.error(
-        f"ERROR DE VALIDACIÓN {request.method} {request.url.path} - {len(error_detail)} errores",
-        extra={
-            "method": request.method,
-            "path": str(request.url.path),
-            "request_body": body_json,
-            "validation_errors": error_detail,
-            "error_messages": mensajes_error,
-            "error_type": "RequestValidationError"
-        }
-    )
+    logger.error(f"Validación fallida {request.method} {request.url.path}: {len(error_detail)} errores")
     
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content=error_response
+        content={"detail": mensajes, "errors": error_detail}
     )
 
 
 @app.exception_handler(ErrorDominio)
 async def error_dominio_handler(request: Request, exc: ErrorDominio):
-    logger.error(
-        f"Error de dominio: {exc.mensaje}",
-        extra={
-            "method": request.method,
-            "path": str(request.url.path),
-            "codigo": exc.codigo.value,
-            "mensaje": exc.mensaje,
-            "error_type": "ErrorDominio"
-        },
-        exc_info=True
-    )
+    logger.error(f"Error dominio: {exc.mensaje}", exc_info=True)
     return JSONResponse(
         status_code=status.HTTP_400_BAD_REQUEST,
         content={"detail": exc.mensaje, "code": exc.codigo.value}
@@ -171,16 +109,7 @@ async def error_dominio_handler(request: Request, exc: ErrorDominio):
 
 @app.exception_handler(ValueError)
 async def value_error_handler(request: Request, exc: ValueError):
-    logger.error(
-        f"Error de validación: {str(exc)}",
-        extra={
-            "method": request.method,
-            "path": str(request.url.path),
-            "error": str(exc),
-            "error_type": "ValueError"
-        },
-        exc_info=True
-    )
+    logger.error(f"ValueError: {str(exc)}", exc_info=True)
     return JSONResponse(
         status_code=status.HTTP_400_BAD_REQUEST,
         content={"detail": str(exc)}
@@ -189,16 +118,7 @@ async def value_error_handler(request: Request, exc: ValueError):
 
 @app.exception_handler(KeyError)
 async def key_error_handler(request: Request, exc: KeyError):
-    logger.error(
-        f"Clave no encontrada: {str(exc)}",
-        extra={
-            "method": request.method,
-            "path": str(request.url.path),
-            "error": str(exc),
-            "error_type": "KeyError"
-        },
-        exc_info=True
-    )
+    logger.error(f"KeyError: {str(exc)}")
     return JSONResponse(
         status_code=status.HTTP_400_BAD_REQUEST,
         content={"detail": f"Clave requerida no encontrada: {str(exc)}"}
@@ -207,17 +127,7 @@ async def key_error_handler(request: Request, exc: KeyError):
 
 @app.exception_handler(ResponseValidationError)
 async def response_validation_error_handler(request: Request, exc: ResponseValidationError):
-    logger.error(
-        f"Error de validación de respuesta en {request.method} {request.url.path}: {str(exc)}",
-        extra={
-            "method": request.method,
-            "path": str(request.url.path),
-            "error": str(exc),
-            "error_type": "ResponseValidationError",
-            "body": exc.body if hasattr(exc, "body") else None
-        },
-        exc_info=True
-    )
+    logger.error(f"Error validación respuesta: {str(exc)}", exc_info=True)
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={"detail": f"Error de validación de respuesta: {str(exc)}"}
@@ -226,44 +136,24 @@ async def response_validation_error_handler(request: Request, exc: ResponseValid
 
 @app.exception_handler(SQLAlchemyError)
 async def sqlalchemy_error_handler(request: Request, exc: SQLAlchemyError):
-    error_msg = str(exc)
-    logger.error(f"Error de base de datos: {error_msg}", exc_info=True)
+    msg = str(exc)
+    logger.error(f"Error BD: {msg}", exc_info=True)
     
-    detail_msg = "Error en la base de datos. Intente más tarde."
-    if "does not exist" in error_msg or "no existe" in error_msg.lower():
-        detail_msg = f"Error en la estructura de la base de datos: {error_msg}"
-    elif "connection" in error_msg.lower() or "connect" in error_msg.lower():
-        detail_msg = "Error de conexión a la base de datos. Verifique la configuración."
+    detail = "Error en la base de datos. Intente más tarde."
+    if "does not exist" in msg or "no existe" in msg.lower():
+        detail = f"Error estructura BD: {msg}"
+    elif "connection" in msg.lower():
+        detail = "Error de conexión a la BD"
     
     return JSONResponse(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-        content={"detail": detail_msg, "error_type": "database_error"}
+        content={"detail": detail}
     )
 
 
 @app.exception_handler(Exception)
 async def generic_exception_handler(request: Request, exc: Exception):
-    try:
-        body = await request.body()
-        body_str = body.decode("utf-8") if body else "{}"
-        try:
-            body_json = json.loads(body_str)
-        except (json.JSONDecodeError, UnicodeDecodeError):
-            body_json = {"raw": body_str[:1000]}
-    except (UnicodeDecodeError, AttributeError):
-        body_json = {}
-    
-    logger.error(
-        f"Error inesperado: {str(exc)}",
-        extra={
-            "method": request.method,
-            "path": str(request.url.path),
-            "request_body": body_json,
-            "error": str(exc),
-            "error_type": type(exc).__name__
-        },
-        exc_info=True
-    )
+    logger.error(f"Error inesperado: {str(exc)}", exc_info=True)
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={"detail": "Error interno del servidor"}

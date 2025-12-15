@@ -9,11 +9,11 @@ from ...application.action_service import ActionService
 
 
 def obtener_sesion_db() -> Session:
-    s = obtener_sesion()
+    sesion = obtener_sesion()
     try:
-        yield s
+        yield sesion
     finally:
-        s.close()
+        sesion.close()
 
 
 def obtener_repositorio(sesion: Session = Depends(obtener_sesion_db)) -> RepositorioOrden:

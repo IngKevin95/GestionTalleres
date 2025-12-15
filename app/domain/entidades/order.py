@@ -83,7 +83,6 @@ class Orden:
         if self.estado == EstadoOrden.CANCELLED:
             raise ErrorDominio(CodigoError.ORDER_CANCELLED, "La orden está cancelada")
         
-        # Buscar servicio por ID
         servicio = None
         for s in self.servicios:
             if s.id_servicio == servicio_id:
@@ -108,7 +107,6 @@ class Orden:
         self._recalcular_total_real()
 
     def _recalcular_total_real(self):
-        # Recalcular sumando costos reales de todos los servicios
         self.total_real = sum(servicio.calcular_costo_real() for servicio in self.servicios)
 
     def intentar_completar(self):

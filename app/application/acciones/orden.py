@@ -11,8 +11,8 @@ from ..mappers import orden_a_dto
 
 
 class CrearOrden:
-    def __init__(self, repositorio: RepositorioOrden, auditoria: AlmacenEventos, repo_cliente=None, repo_vehiculo=None):
-        self.repositorio = repositorio
+    def __init__(self, repo: RepositorioOrden, auditoria: AlmacenEventos, repo_cliente=None, repo_vehiculo=None):
+        self.repo = repo
         self.auditoria = auditoria
         self.repo_cliente = repo_cliente
         self.repo_vehiculo = repo_vehiculo
@@ -21,9 +21,9 @@ class CrearOrden:
         if not dto.order_id:
             raise ErrorDominio(CodigoError.INVALID_OPERATION, "order_id es requerido")
         
-        orden_existente = self.repositorio.obtener(dto.order_id)
-        if orden_existente:
-            return orden_a_dto(orden_existente)
+        ord_exist = self.repo.obtener(dto.order_id)
+        if ord_exist:
+            return orden_a_dto(ord_exist)
         
         cliente_nombre = None
         vehiculo_placa = None
@@ -79,7 +79,7 @@ class CrearOrden:
         orden = Orden(dto.order_id, cliente_nombre, vehiculo_placa, dto.timestamp)
         orden.eventos.append(Evento("CREATED", ahora(), {}))
         
-        self.repositorio.guardar(orden)
+        self.repo.guardar(orden)
         for evt in orden.eventos:
             self.auditoria.registrar(evt)
         return orden_a_dto(orden)

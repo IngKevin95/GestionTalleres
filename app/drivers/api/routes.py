@@ -3,7 +3,7 @@ from typing import List, Dict, Any, Optional
 
 from ...application.action_service import ActionService
 from ...application.dtos import OrdenDTO, EventoDTO, ErrorDTO, CrearOrdenDTO, AgregarServicioDTO, AutorizarDTO, ReautorizarDTO, EstablecerCostoRealDTO, IntentarCompletarDTO, EntregarDTO, CancelarDTO
-from ...application.mappers import orden_a_dto, cliente_a_dto, vehiculo_a_dto, json_a_crear_orden_dto, json_a_agregar_servicio_dto, json_a_autorizar_dto, json_a_reautorizar_dto, json_a_establecer_costo_real_dto, json_a_intentar_completar_dto, json_a_entregar_dto, json_a_cancelar_dto
+from ...application.mappers import orden_a_dto, cliente_a_dto, vehiculo_a_dto, crear_orden_dto, agregar_servicio_dto, autorizar_dto, reautorizar_dto, costo_real_dto, intentar_completar_dto, entregar_dto, cancelar_dto
 from ...infrastructure.repositories import RepositorioOrden, RepositorioClienteSQL, RepositorioVehiculoSQL
 from ...domain.exceptions import ErrorDominio
 from ...domain.entidades import Cliente, Vehiculo
@@ -22,9 +22,6 @@ from ...infrastructure.logging_config import obtener_logger
 logger = obtener_logger("app.drivers.api.routes")
 
 router = APIRouter()
-
-DESC_ORDER_ID = "ID de la orden"
-DESC_CUSTOMER_ID = "ID del cliente"
 
 
 def obtener_cliente_por_criterio(customer: CustomerIdentifier, repo: RepositorioClienteSQL) -> Cliente:
@@ -73,43 +70,11 @@ def obtener_vehiculo_por_criterio(vehicle: VehicleIdentifier, repo: RepositorioV
     
     return vehiculo
 
-@router.get(
-    "/",
-    tags=["Health"],
-    summary="Información de la API",
-    description="Retorna información básica sobre la API y su versión.",
-    response_description="Información de la API"
-)
+@router.get("/")
 def root():
     return {"message": "GestionTalleres API", "version": "1.0.0"}
 
-@router.get(
-    "/health",
-    response_model=HealthResponse,
-    tags=["Health"],
-    summary="Health Check",
-    description="""
-    Verifica el estado de la API y la conexión a la base de datos.
-    
-    Retorna:
-    - **status**: Estado general ('ok', 'warning', 'error')
-    - **api**: Estado de la API
-    - **database**: Estado de la conexión a la BD
-    - **tablas**: Lista de tablas existentes
-    - **mensaje**: Mensaje adicional si hay problemas
-    
-    Si alguna tabla esperada no existe, retorna status 'warning' con un mensaje indicando que se debe ejecutar `python init_db.py`.
-    """,
-    response_description="Estado de la API y base de datos",
-    responses={
-        200: {
-            "description": "API y base de datos operativas",
-        },
-        503: {
-            "description": "Error en la conexión a la base de datos",
-        }
-    }
-)
+@router.get("/health", response_model=HealthResponse)
 def health_check():
     estado = {
         "status": "ok",
@@ -156,18 +121,6 @@ def health_check():
     return estado
 
 
-def _formatear_orden_respuesta(orden_dto: OrdenDTO) -> Dict[str, Any]:
-    return {
-        "order_id": orden_dto.order_id,
-        "status": orden_dto.status,
-        "customer": orden_dto.customer,
-        "vehicle": orden_dto.vehicle,
-        "subtotal_estimated": orden_dto.subtotal_estimated,
-        "authorized_amount": orden_dto.authorized_amount if orden_dto.authorized_amount else "0.00",
-        "real_total": orden_dto.real_total
-    }
-
-
 def _normalizar_comando(comando_raw: dict, idx: int) -> dict:
     comando = comando_raw.copy()
     
@@ -199,10 +152,16 @@ def _procesar_comando_individual(
     try:
         orden_dto, eventos_dto, error_dto = action_service.procesar_comando(comando)
         
-        if orden_dto:
-            order_id = orden_dto.order_id
-            if order_id:
-                orders_dict[order_id] = _formatear_orden_respuesta(orden_dto)
+        if orden_dto and orden_dto.order_id:
+            orders_dict[orden_dto.order_id] = {
+                "order_id": orden_dto.order_id,
+                "status": orden_dto.status,
+                "customer": orden_dto.customer,
+                "vehicle": orden_dto.vehicle,
+                "subtotal_estimated": orden_dto.subtotal_estimated,
+                "authorized_amount": orden_dto.authorized_amount or "0.00",
+                "real_total": orden_dto.real_total
+            }
         
         if error_dto:
             errors.append(error_dto.model_dump())
@@ -215,40 +174,7 @@ def _procesar_comando_individual(
         raise
 
 
-@router.post(
-    "/commands",
-    response_model=CommandsResponse,
-    status_code=status.HTTP_200_OK,
-    tags=["Comandos"],
-    summary="Procesar comandos batch",
-    name="procesar_comandos",
-    description="""
-    Procesa un lote de comandos para gestionar órdenes de reparación.
-    
-    Comandos soportados:
-    - **CREATE_ORDER**: Crear una nueva orden
-    - **ADD_SERVICE**: Agregar un servicio a una orden
-    - **SET_STATE_DIAGNOSED**: Establecer orden como diagnosticada
-    - **AUTHORIZE**: Autorizar monto para reparación
-    - **SET_STATE_IN_PROGRESS**: Iniciar reparación
-    - **SET_REAL_COST**: Establecer costos reales
-    - **TRY_COMPLETE**: Intentar completar la orden
-    - **REAUTHORIZE**: Reautorizar con nuevo monto
-    - **DELIVER**: Entregar orden al cliente
-    - **CANCEL**: Cancelar orden
-    
-    Retorna las órdenes procesadas, eventos generados y errores encontrados.
-    """,
-    response_description="Resultado del procesamiento de comandos",
-    responses={
-        200: {
-            "description": "Comandos procesados exitosamente",
-        },
-        400: {
-            "description": "Error en el procesamiento de comandos",
-        }
-    }
-)
+@router.post("/commands", response_model=CommandsResponse)
 def procesar_comandos(
     request_body: CommandsRequest,
     action_service: ActionService = Depends(obtener_action_service)
@@ -285,35 +211,14 @@ def procesar_comandos(
             detail="Error al procesar comandos"
         )
     
-    orders = list(orders_dict.values())
-    
-    if not isinstance(orders, list):
-        orders = list(orders) if orders else []
-    if not isinstance(events, list):
-        events = list(events) if events else []
-    if not isinstance(errors, list):
-        errors = list(errors) if errors else []
-    
-    return CommandsResponse(orders=orders, events=events, errors=errors)
+    return CommandsResponse(
+        orders=list(orders_dict.values()),
+        events=events,
+        errors=errors
+    )
 
 
-@router.post(
-    "/orders",
-    response_model=OrdenDTO,
-    status_code=status.HTTP_201_CREATED,
-    tags=["Ordenes"],
-    summary="Crear orden",
-    description="Crea una nueva orden de reparación.",
-    response_description="Orden creada",
-    responses={
-        201: {
-            "description": "Orden creada exitosamente",
-        },
-        400: {
-            "description": "Error en los datos proporcionados",
-        }
-    }
-)
+@router.post("/orders", response_model=OrdenDTO, status_code=status.HTTP_201_CREATED)
 def crear_orden(
     request: CreateOrderRequest,
     action_service: ActionService = Depends(obtener_action_service),
@@ -327,37 +232,18 @@ def crear_orden(
             "order_id": request.order_id,
             "ts": request.ts
         }
-        dto = json_a_crear_orden_dto(data)
+        dto = crear_orden_dto(data)
         from ...application.acciones.orden import CrearOrden
         accion = CrearOrden(action_service.repo, action_service.auditoria, repo_cliente, repo_vehiculo)
         return accion.ejecutar(dto)
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except ErrorDominio as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.mensaje)
-    except Exception as e:
-        logger.error(f"Error inesperado al crear orden: {str(e)}", exc_info=True)
-        raise
+    except (ValueError, ErrorDominio) as e:
+        msg = e.mensaje if isinstance(e, ErrorDominio) else str(e)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=msg)
 
 
-@router.get(
-    "/orders/{order_id}",
-    response_model=OrdenDTO,
-    tags=["Ordenes"],
-    summary="Obtener orden por ID",
-    description="Consulta una orden de reparación por su ID.",
-    response_description="Datos de la orden solicitada",
-    responses={
-        200: {
-            "description": "Orden encontrada",
-        },
-        404: {
-            "description": "Orden no encontrada",
-        }
-    }
-)
+@router.get("/orders/{order_id}", response_model=OrdenDTO)
 def obtener_orden(
-    order_id: str = Path(..., description=f"{DESC_ORDER_ID} a consultar", examples=["ORD-123"]),
+    order_id: str = Path(...),
     repo: RepositorioOrden = Depends(obtener_repositorio)
 ):
     o = repo.obtener(order_id)
@@ -367,29 +253,11 @@ def obtener_orden(
     return orden_a_dto(o)
 
 
-@router.patch(
-    "/orders/{order_id}",
-    response_model=OrdenDTO,
-    tags=["Ordenes"],
-    summary="Actualizar orden",
-    description="Actualiza información básica de una orden (cliente y vehículo). Nota: Los estados y servicios se actualizan mediante endpoints específicos.",
-    response_description="Orden actualizada",
-    responses={
-        200: {
-            "description": "Orden actualizada exitosamente",
-        },
-        400: {
-            "description": "Error en los datos proporcionados",
-        },
-        404: {
-            "description": "Orden no encontrada",
-        }
-    }
-)
+@router.patch("/orders/{order_id}", response_model=OrdenDTO)
 def actualizar_orden(
-    order_id: str = Path(..., description=DESC_ORDER_ID, examples=["ORD-123"]),
-    customer: Optional[str] = Body(None, description="Nombre del cliente"),
-    vehicle: Optional[str] = Body(None, description="Descripción del vehículo"),
+    order_id: str = Path(...),
+    customer: Optional[str] = Body(None),
+    vehicle: Optional[str] = Body(None),
     repo: RepositorioOrden = Depends(obtener_repositorio)
 ):
     orden = repo.obtener(order_id)
@@ -405,14 +273,9 @@ def actualizar_orden(
     return orden_a_dto(orden)
 
 
-@router.post(
-    "/orders/{order_id}/set_state",
-    response_model=OrdenDTO,
-    tags=["Ordenes"],
-    summary="Establecer estado de orden"
-)
+@router.post("/orders/{order_id}/set_state", response_model=OrdenDTO)
 def establecer_estado(
-    order_id: str = Path(..., description=DESC_ORDER_ID, examples=["ORD-123"]),
+    order_id: str = Path(...),
     request: SetStateRequest = ...,
     repo: RepositorioOrden = Depends(obtener_repositorio),
     action_service: ActionService = Depends(obtener_action_service)
@@ -443,13 +306,9 @@ def establecer_estado(
 
 
 
-@router.post(
-    "/orders/{order_id}/services",
-    response_model=OrdenDTO,
-    tags=["Ordenes"]
-)
+@router.post("/orders/{order_id}/services", response_model=OrdenDTO)
 def agregar_servicio(
-    order_id: str = Path(..., description=DESC_ORDER_ID, examples=["ORD-123"]),
+    order_id: str = Path(...),
     request: AddServiceRequest = ...,
     action_service: ActionService = Depends(obtener_action_service)
 ):
@@ -460,7 +319,7 @@ def agregar_servicio(
         "labor_estimated_cost": request.labor_estimated_cost,
         "components": request.components
     }
-    dto = json_a_agregar_servicio_dto(data)
+    dto = agregar_servicio_dto(data)
     from ...application.acciones.servicios import AgregarServicio
     accion = AgregarServicio(action_service.repo, action_service.auditoria)
     try:
@@ -469,13 +328,9 @@ def agregar_servicio(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.mensaje)
 
 
-@router.post(
-    "/orders/{order_id}/authorize",
-    response_model=OrdenDTO,
-    tags=["Ordenes"]
-)
+@router.post("/orders/{order_id}/authorize", response_model=OrdenDTO)
 def autorizar_orden(
-    order_id: str = Path(..., description=DESC_ORDER_ID, examples=["ORD-123"]),
+    order_id: str = Path(...),
     request: AuthorizeRequest = ...,
     action_service: ActionService = Depends(obtener_action_service)
 ):
@@ -483,7 +338,7 @@ def autorizar_orden(
         "order_id": order_id,
         "ts": request.ts.isoformat() if request.ts else ahora().isoformat()
     }
-    dto = json_a_autorizar_dto(data)
+    dto = autorizar_dto(data)
     from ...application.acciones.autorizacion import Autorizar
     accion = Autorizar(action_service.repo, action_service.auditoria)
     try:
@@ -492,27 +347,9 @@ def autorizar_orden(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.mensaje)
 
 
-@router.post(
-    "/orders/{order_id}/reauthorize",
-    response_model=OrdenDTO,
-    tags=["Ordenes"],
-    summary="Reautorizar orden",
-    description="Reautoriza una orden con un nuevo monto cuando el costo real excede el 110% del monto autorizado.",
-    response_description="Orden reautorizada",
-    responses={
-        200: {
-            "description": "Orden reautorizada exitosamente",
-        },
-        400: {
-            "description": "Error en la reautorización o monto inválido",
-        },
-        404: {
-            "description": "Orden no encontrada",
-        }
-    }
-)
+@router.post("/orders/{order_id}/reauthorize", response_model=OrdenDTO)
 def reautorizar_orden(
-    order_id: str = Path(..., description=DESC_ORDER_ID, examples=["ORD-123"]),
+    order_id: str = Path(...),
     request: ReauthorizeRequest = ...,
     action_service: ActionService = Depends(obtener_action_service)
 ):
@@ -521,7 +358,7 @@ def reautorizar_orden(
         "new_authorized_amount": str(request.new_authorized_amount),
         "ts": request.ts.isoformat() if request.ts else ahora().isoformat()
     }
-    dto = json_a_reautorizar_dto(data)
+    dto = reautorizar_dto(data)
     from ...application.acciones.autorizacion import Reautorizar
     accion = Reautorizar(action_service.repo, action_service.auditoria)
     try:
@@ -530,27 +367,9 @@ def reautorizar_orden(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.mensaje)
 
 
-@router.post(
-    "/orders/{order_id}/set_real_cost",
-    response_model=OrdenDTO,
-    tags=["Ordenes"],
-    summary="Establecer costo real",
-    description="Establece el costo real de un servicio en una orden.",
-    response_description="Orden con costo real actualizado",
-    responses={
-        200: {
-            "description": "Costo real establecido exitosamente",
-        },
-        400: {
-            "description": "Error en los datos o servicio no encontrado",
-        },
-        404: {
-            "description": "Orden no encontrada",
-        }
-    }
-)
+@router.post("/orders/{order_id}/set_real_cost", response_model=OrdenDTO)
 def establecer_costo_real(
-    order_id: str = Path(..., description=DESC_ORDER_ID, examples=["ORD-123"]),
+    order_id: str = Path(...),
     request: SetRealCostRequest = ...,
     action_service: ActionService = Depends(obtener_action_service)
 ):
@@ -562,7 +381,7 @@ def establecer_costo_real(
         "completed": request.completed,
         "components_real": {k: str(v) for k, v in (request.components_real or {}).items()}
     }
-    dto = json_a_establecer_costo_real_dto(data)
+    dto = costo_real_dto(data)
     from ...application.acciones.servicios import EstablecerCostoReal
     accion = EstablecerCostoReal(action_service.repo, action_service.auditoria)
     try:
@@ -571,17 +390,13 @@ def establecer_costo_real(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.mensaje)
 
 
-@router.post(
-    "/orders/{order_id}/try_complete",
-    response_model=OrdenDTO,
-    tags=["Ordenes"]
-)
+@router.post("/orders/{order_id}/try_complete", response_model=OrdenDTO)
 def intentar_completar_orden(
-    order_id: str = Path(..., description=DESC_ORDER_ID, examples=["ORD-123"]),
+    order_id: str = Path(...),
     action_service: ActionService = Depends(obtener_action_service)
 ):
     data = {"order_id": order_id}
-    dto = json_a_intentar_completar_dto(data)
+    dto = intentar_completar_dto(data)
     from ...application.acciones.autorizacion import IntentarCompletar
     accion = IntentarCompletar(action_service.repo, action_service.auditoria)
     try:
@@ -590,31 +405,13 @@ def intentar_completar_orden(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.mensaje)
 
 
-@router.post(
-    "/orders/{order_id}/deliver",
-    response_model=OrdenDTO,
-    tags=["Ordenes"],
-    summary="Entregar orden",
-    description="Marca una orden completada como entregada al cliente.",
-    response_description="Orden entregada",
-    responses={
-        200: {
-            "description": "Orden entregada exitosamente",
-        },
-        400: {
-            "description": "Error en la transición de estado",
-        },
-        404: {
-            "description": "Orden no encontrada",
-        }
-    }
-)
+@router.post("/orders/{order_id}/deliver", response_model=OrdenDTO)
 def entregar_orden(
-    order_id: str = Path(..., description=DESC_ORDER_ID, examples=["ORD-123"]),
+    order_id: str = Path(...),
     action_service: ActionService = Depends(obtener_action_service)
 ):
     data = {"order_id": order_id}
-    dto = json_a_entregar_dto(data)
+    dto = entregar_dto(data)
     from ...application.acciones.orden import EntregarOrden
     accion = EntregarOrden(action_service.repo, action_service.auditoria)
     try:
@@ -623,27 +420,9 @@ def entregar_orden(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.mensaje)
 
 
-@router.post(
-    "/orders/{order_id}/cancel",
-    response_model=OrdenDTO,
-    tags=["Ordenes"],
-    summary="Cancelar orden",
-    description="Cancela una orden con el motivo especificado.",
-    response_description="Orden cancelada",
-    responses={
-        200: {
-            "description": "Orden cancelada exitosamente",
-        },
-        400: {
-            "description": "Error en la cancelación",
-        },
-        404: {
-            "description": "Orden no encontrada",
-        }
-    }
-)
+@router.post("/orders/{order_id}/cancel", response_model=OrdenDTO)
 def cancelar_orden(
-    order_id: str = Path(..., description=DESC_ORDER_ID, examples=["ORD-123"]),
+    order_id: str = Path(...),
     request: CancelRequest = ...,
     action_service: ActionService = Depends(obtener_action_service)
 ):
@@ -651,7 +430,7 @@ def cancelar_orden(
         "order_id": order_id,
         "reason": request.reason
     }
-    dto = json_a_cancelar_dto(data)
+    dto = cancelar_dto(data)
     from ...application.acciones.orden import CancelarOrden
     accion = CancelarOrden(action_service.repo, action_service.auditoria)
     try:
@@ -660,19 +439,7 @@ def cancelar_orden(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.mensaje)
 
 
-@router.get(
-    "/customers",
-    response_model=ListClientesResponse,
-    tags=["Clientes"],
-    summary="Listar clientes",
-    description="Obtiene la lista de todos los clientes registrados.",
-    response_description="Lista de clientes",
-    responses={
-        200: {
-            "description": "Lista de clientes obtenida exitosamente",
-        }
-    }
-)
+@router.get("/customers", response_model=ListClientesResponse)
 def listar_clientes(
     repo_cliente: RepositorioClienteSQL = Depends(obtener_repositorio_cliente)
 ):
@@ -691,26 +458,11 @@ def listar_clientes(
     return ListClientesResponse(clientes=clientes_response)
 
 
-@router.get(
-    "/customers",
-    response_model=ClienteResponse,
-    tags=["Clientes"],
-    summary="Obtener cliente",
-    description="Obtiene los datos de un cliente específico por ID, identificación o nombre.",
-    response_description="Datos del cliente",
-    responses={
-        200: {
-            "description": "Cliente encontrado",
-        },
-        404: {
-            "description": "Cliente no encontrado",
-        }
-    }
-)
+@router.get("/customers", response_model=ClienteResponse)
 def obtener_cliente(
-    id_cliente: Optional[int] = Query(None, description="ID del cliente"),
-    identificacion: Optional[str] = Query(None, description="Identificación del cliente"),
-    nombre: Optional[str] = Query(None, description="Nombre del cliente"),
+    id_cliente: Optional[int] = Query(None),
+    identificacion: Optional[str] = Query(None),
+    nombre: Optional[str] = Query(None),
     repo_cliente: RepositorioClienteSQL = Depends(obtener_repositorio_cliente)
 ):
     customer = CustomerIdentifier(id_cliente=id_cliente, identificacion=identificacion, nombre=nombre)
@@ -725,23 +477,7 @@ def obtener_cliente(
     )
 
 
-@router.post(
-    "/customers",
-    response_model=ClienteResponse,
-    status_code=status.HTTP_201_CREATED,
-    tags=["Clientes"],
-    summary="Crear cliente",
-    description="Crea un nuevo cliente. Si ya existe un cliente con el mismo nombre o identificación, retorna el existente.",
-    response_description="Cliente creado o existente",
-    responses={
-        201: {
-            "description": "Cliente creado exitosamente o ya existía",
-        },
-        400: {
-            "description": "Error en los datos proporcionados",
-        }
-    }
-)
+@router.post("/customers", response_model=ClienteResponse, status_code=status.HTTP_201_CREATED)
 def crear_cliente(
     request: CreateClienteRequest,
     repo_cliente: RepositorioClienteSQL = Depends(obtener_repositorio_cliente)
@@ -792,26 +528,11 @@ def crear_cliente(
     )
 
 
-@router.patch(
-    "/customers",
-    response_model=ClienteResponse,
-    tags=["Clientes"],
-    summary="Actualizar cliente",
-    description="Actualiza la información de un cliente existente identificado por ID, identificación o nombre.",
-    response_description="Cliente actualizado",
-    responses={
-        200: {
-            "description": "Cliente actualizado exitosamente",
-        },
-        404: {
-            "description": "Cliente no encontrado",
-        }
-    }
-)
+@router.patch("/customers", response_model=ClienteResponse)
 def actualizar_cliente(
-    id_cliente: Optional[int] = Query(None, description="ID del cliente"),
-    identificacion: Optional[str] = Query(None, description="Identificación del cliente"),
-    nombre: Optional[str] = Query(None, description="Nombre del cliente"),
+    id_cliente: Optional[int] = Query(None),
+    identificacion: Optional[str] = Query(None),
+    nombre: Optional[str] = Query(None),
     request: UpdateClienteRequest = ...,
     repo_cliente: RepositorioClienteSQL = Depends(obtener_repositorio_cliente)
 ):
@@ -839,26 +560,11 @@ def actualizar_cliente(
     )
 
 
-@router.get(
-    "/customers/vehicles",
-    response_model=ListVehiculosResponse,
-    tags=["Clientes"],
-    summary="Obtener vehículos de un cliente",
-    description="Obtiene la lista de vehículos asociados a un cliente identificado por ID, identificación o nombre.",
-    response_description="Lista de vehículos del cliente",
-    responses={
-        200: {
-            "description": "Lista de vehículos obtenida exitosamente",
-        },
-        404: {
-            "description": "Cliente no encontrado",
-        }
-    }
-)
+@router.get("/customers/vehicles", response_model=ListVehiculosResponse)
 def obtener_vehiculos_cliente(
-    id_cliente: Optional[int] = Query(None, description="ID del cliente"),
-    identificacion: Optional[str] = Query(None, description="Identificación del cliente"),
-    nombre: Optional[str] = Query(None, description="Nombre del cliente"),
+    id_cliente: Optional[int] = Query(None),
+    identificacion: Optional[str] = Query(None),
+    nombre: Optional[str] = Query(None),
     repo_cliente: RepositorioClienteSQL = Depends(obtener_repositorio_cliente),
     repo_vehiculo: RepositorioVehiculoSQL = Depends(obtener_repositorio_vehiculo)
 ):
@@ -882,19 +588,7 @@ def obtener_vehiculos_cliente(
     return ListVehiculosResponse(vehiculos=vehiculos_response)
 
 
-@router.get(
-    "/vehicles",
-    response_model=ListVehiculosResponse,
-    tags=["Vehiculos"],
-    summary="Listar vehículos",
-    description="Obtiene la lista de todos los vehículos registrados.",
-    response_description="Lista de vehículos",
-    responses={
-        200: {
-            "description": "Lista de vehículos obtenida exitosamente",
-        }
-    }
-)
+@router.get("/vehicles", response_model=ListVehiculosResponse)
 def listar_vehiculos(
     repo_vehiculo: RepositorioVehiculoSQL = Depends(obtener_repositorio_vehiculo),
     repo_cliente: RepositorioClienteSQL = Depends(obtener_repositorio_cliente)
@@ -919,25 +613,10 @@ def listar_vehiculos(
     return ListVehiculosResponse(vehiculos=vehiculos_response)
 
 
-@router.get(
-    "/vehicles",
-    response_model=VehiculoResponse,
-    tags=["Vehiculos"],
-    summary="Obtener vehículo",
-    description="Obtiene los datos de un vehículo específico por ID o placa.",
-    response_description="Datos del vehículo",
-    responses={
-        200: {
-            "description": "Vehículo encontrado",
-        },
-        404: {
-            "description": "Vehículo no encontrado",
-        }
-    }
-)
+@router.get("/vehicles", response_model=VehiculoResponse)
 def obtener_vehiculo(
-    id_vehiculo: Optional[int] = Query(None, description="ID del vehículo"),
-    placa: Optional[str] = Query(None, description="Placa del vehículo"),
+    id_vehiculo: Optional[int] = Query(None),
+    placa: Optional[str] = Query(None),
     repo_vehiculo: RepositorioVehiculoSQL = Depends(obtener_repositorio_vehiculo),
     repo_cliente: RepositorioClienteSQL = Depends(obtener_repositorio_cliente)
 ):
@@ -958,26 +637,7 @@ def obtener_vehiculo(
     )
 
 
-@router.post(
-    "/vehicles",
-    response_model=VehiculoResponse,
-    status_code=status.HTTP_201_CREATED,
-    tags=["Vehiculos"],
-    summary="Crear vehículo",
-    description="Crea un nuevo vehículo asociado a un cliente. Si ya existe un vehículo con la misma placa, retorna el existente.",
-    response_description="Vehículo creado o existente",
-    responses={
-        201: {
-            "description": "Vehículo creado exitosamente o ya existía",
-        },
-        400: {
-            "description": "Error en los datos proporcionados",
-        },
-        404: {
-            "description": "Cliente no encontrado",
-        }
-    }
-)
+@router.post("/vehicles", response_model=VehiculoResponse, status_code=status.HTTP_201_CREATED)
 def crear_vehiculo(
     request: CreateVehiculoRequest,
     repo_vehiculo: RepositorioVehiculoSQL = Depends(obtener_repositorio_vehiculo),
@@ -1021,25 +681,10 @@ def crear_vehiculo(
     )
 
 
-@router.patch(
-    "/vehicles",
-    response_model=VehiculoResponse,
-    tags=["Vehiculos"],
-    summary="Actualizar vehículo",
-    description="Actualiza la información de un vehículo existente identificado por ID o placa (query parameters).",
-    response_description="Vehículo actualizado",
-    responses={
-        200: {
-            "description": "Vehículo actualizado exitosamente",
-        },
-        404: {
-            "description": "Vehículo o cliente no encontrado",
-        }
-    }
-)
+@router.patch("/vehicles", response_model=VehiculoResponse)
 def actualizar_vehiculo(
-    id_vehiculo: Optional[int] = Query(None, description="ID del vehículo"),
-    placa: Optional[str] = Query(None, description="Placa del vehículo"),
+    id_vehiculo: Optional[int] = Query(None),
+    placa: Optional[str] = Query(None),
     request: UpdateVehiculoRequest = ...,
     repo_vehiculo: RepositorioVehiculoSQL = Depends(obtener_repositorio_vehiculo),
     repo_cliente: RepositorioClienteSQL = Depends(obtener_repositorio_cliente)
@@ -1081,24 +726,9 @@ def actualizar_vehiculo(
     )
 
 
-@router.patch(
-    "/vehicles/{vehicle_identifier}",
-    response_model=VehiculoResponse,
-    tags=["Vehiculos"],
-    summary="Actualizar vehículo por identificador",
-    description="Actualiza la información de un vehículo existente identificado por ID o placa en el path.",
-    response_description="Vehículo actualizado",
-    responses={
-        200: {
-            "description": "Vehículo actualizado exitosamente",
-        },
-        404: {
-            "description": "Vehículo o cliente no encontrado",
-        }
-    }
-)
+@router.patch("/vehicles/{vehicle_identifier}", response_model=VehiculoResponse)
 def actualizar_vehiculo_por_path(
-    vehicle_identifier: str = Path(..., description="ID del vehículo (numérico) o placa del vehículo"),
+    vehicle_identifier: str = Path(...),
     request: UpdateVehiculoRequest = ...,
     repo_vehiculo: RepositorioVehiculoSQL = Depends(obtener_repositorio_vehiculo),
     repo_cliente: RepositorioClienteSQL = Depends(obtener_repositorio_cliente)
