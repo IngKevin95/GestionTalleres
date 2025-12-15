@@ -7,4 +7,3 @@ class ErrorDominio(Exception):
         self.mensaje = mensaje
         super().__init__(mensaje)
 
-
