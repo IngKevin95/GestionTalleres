@@ -81,10 +81,10 @@ def test_cancel_request():
 
 def test_cliente_response():
     response = ClienteResponse(
-        id_cliente="CLI-001",
+        id_cliente=1,
         nombre="Juan Pérez"
     )
-    assert response.id_cliente == "CLI-001"
+    assert response.id_cliente == 1
     assert response.nombre == "Juan Pérez"
 
 
@@ -102,7 +102,7 @@ def test_list_clientes_response():
     from app.drivers.api.schemas import ClienteResponse
     response = ListClientesResponse(
         clientes=[
-            ClienteResponse(id_cliente="CLI-001", nombre="Juan")
+            ClienteResponse(id_cliente=1, nombre="Juan")
         ]
     )
     assert len(response.clientes) == 1
@@ -110,33 +110,33 @@ def test_list_clientes_response():
 
 def test_vehiculo_response():
     response = VehiculoResponse(
-        id_vehiculo="VEH-001",
-        descripcion="ABC-123",
-        id_cliente="CLI-001"
+        id_vehiculo=1,
+        placa="ABC-123",
+        id_cliente=1
     )
-    assert response.id_vehiculo == "VEH-001"
-    assert response.descripcion == "ABC-123"
+    assert response.id_vehiculo == 1
+    assert response.placa == "ABC-123"
 
 
 def test_create_vehiculo_request():
     request = CreateVehiculoRequest(
-        descripcion="ABC-123",
-        id_cliente="CLI-001"
+        placa="ABC-123",
+        customer={"id_cliente": 1}
     )
-    assert request.descripcion == "ABC-123"
-    assert request.id_cliente == "CLI-001"
+    assert request.placa == "ABC-123"
+    assert request.customer.id_cliente == 1
 
 
 def test_update_vehiculo_request():
-    request = UpdateVehiculoRequest(descripcion="XYZ-789")
-    assert request.descripcion == "XYZ-789"
+    request = UpdateVehiculoRequest(placa="XYZ-789")
+    assert request.placa == "XYZ-789"
 
 
 def test_list_vehiculos_response():
     from app.drivers.api.schemas import VehiculoResponse
     response = ListVehiculosResponse(
         vehiculos=[
-            VehiculoResponse(id_vehiculo="VEH-001", descripcion="ABC-123", id_cliente="CLI-001")
+            VehiculoResponse(id_vehiculo=1, placa="ABC-123", id_cliente=1)
         ]
     )
     assert len(response.vehiculos) == 1

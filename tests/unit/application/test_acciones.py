@@ -497,13 +497,13 @@ def test_cancelar_orden_no_existe():
     except ErrorDominio as e:
         assert e.codigo == CodigoError.ORDER_NOT_FOUND
 
-
 def test_establecer_costo_real():
     repo = RepositorioOrdenMock()
     audit = AlmacenEventosMock()
     
     orden = Orden("ORD-001", "Juan", "Auto", datetime.utcnow())
     servicio = Servicio("Servicio", Decimal("1000.00"))
+    servicio.id_servicio = 1  # Asignar ID
     orden.servicios.append(servicio)
     repo.guardar(orden)
     
@@ -529,7 +529,9 @@ def test_establecer_costo_real_por_indice():
     
     orden = Orden("ORD-001", "Juan", "Auto", datetime.utcnow())
     servicio1 = Servicio("Servicio 1", Decimal("1000.00"))
+    servicio1.id_servicio = 1
     servicio2 = Servicio("Servicio 2", Decimal("2000.00"))
+    servicio2.id_servicio = 2
     orden.servicios.append(servicio1)
     orden.servicios.append(servicio2)
     repo.guardar(orden)
@@ -555,7 +557,9 @@ def test_establecer_costo_real_con_componentes():
     
     orden = Orden("ORD-001", "Juan", "Auto", datetime.utcnow())
     servicio = Servicio("Servicio", Decimal("1000.00"))
+    servicio.id_servicio = 1
     componente = Componente("Componente", Decimal("200.00"))
+    componente.id_componente = 1
     servicio.componentes.append(componente)
     orden.servicios.append(servicio)
     repo.guardar(orden)
@@ -649,7 +653,7 @@ def test_establecer_costo_real_orden_no_existe():
     
     dto = EstablecerCostoRealDTO(
         order_id="ORD-999",
-        servicio_id="SERV-123",
+        servicio_id=1,  # int, no string
         costo_real=Decimal("1200.00")
     )
     
@@ -666,6 +670,7 @@ def test_establecer_costo_real_completed_false():
     
     orden = Orden("ORD-001", "Juan", "Auto", datetime.utcnow())
     servicio = Servicio("Servicio", Decimal("1000.00"))
+    servicio.id_servicio = 1  # Asignar ID para que funcione
     orden.servicios.append(servicio)
     repo.guardar(orden)
     
@@ -690,6 +695,7 @@ def test_establecer_costo_real_completed_none():
     
     orden = Orden("ORD-001", "Juan", "Auto", datetime.utcnow())
     servicio = Servicio("Servicio", Decimal("1000.00"))
+    servicio.id_servicio = 1  # Asignar ID
     servicio.completado = True
     orden.servicios.append(servicio)
     repo.guardar(orden)

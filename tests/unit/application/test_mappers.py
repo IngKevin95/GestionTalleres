@@ -31,11 +31,12 @@ def test_crear_orden_dto_sin_order_id():
         "customer": "Juan",
         "vehicle": "Auto"
     }
-    try:
-        crear_orden_dto(data)
-        assert False
-    except ValueError:
-        pass
+    # Cuando no se proporciona order_id, debería auto-generarse
+    dto = crear_orden_dto(data)
+    assert dto.order_id is not None
+    assert dto.order_id.startswith("ORD-")
+    assert dto.customer.nombre == "Juan"
+    assert dto.vehicle.placa == "Auto"
 
 
 def test_agregar_servicio_dto():

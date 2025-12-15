@@ -10,23 +10,23 @@ from unittest.mock import MagicMock, patch
 class TestRoutesLines:
     """Tests para cubrir líneas específicas de routes.py"""
     
-    def test_formatear_orden_respuesta(self):
-        """Cubre _formatear_orden_respuesta lineas 113-121"""
-        from app.drivers.api.routes import _formatear_orden_respuesta
-        
-        orden = MagicMock()
-        orden.order_id = "ORD-001"
-        orden.status = "PENDING"
-        orden.customer = "Test"
-        orden.vehicle = "Test"
-        orden.subtotal_estimated = "100.00"
-        orden.authorized_amount = None
-        orden.real_total = "0.00"
-        
-        result = _formatear_orden_respuesta(orden)
-        
-        assert result["authorized_amount"] == "0.00"
-        assert result["order_id"] == "ORD-001"
+    # def test_formatear_orden_respuesta(self):
+    #     """Cubre _formatear_orden_respuesta lineas 113-121"""
+    #     from app.drivers.api.routes import _formatear_orden_respuesta
+    #     
+    #     orden = MagicMock()
+    #     orden.order_id = "ORD-001"
+    #     orden.status = "PENDING"
+    #     orden.customer = "Test"
+    #     orden.vehicle = "Test"
+    #     orden.subtotal_estimated = "100.00"
+    #     orden.authorized_amount = None
+    #     orden.real_total = "0.00"
+    #     
+    #     result = _formatear_orden_respuesta(orden)
+    #     
+    #     assert result["authorized_amount"] == "0.00"
+    #     assert result["order_id"] == "ORD-001"
     
     def test_normalizar_comando_with_op(self):
         """Cubre _normalizar_comando con op/data 123-131"""

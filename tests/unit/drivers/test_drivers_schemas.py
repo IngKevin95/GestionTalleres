@@ -98,12 +98,12 @@ def test_add_service_request():
 
 def test_set_real_cost_request():
     request = SetRealCostRequest(
-        service_id="SERV-001",
+        service_id=1,
         real_cost=Decimal("1200.00"),
         completed=True,
-        components_real={"COMP-1": Decimal("200.00")}
+        components_real={1: Decimal("200.00")}
     )
-    assert request.service_id == "SERV-001"
+    assert request.service_id == 1
     assert request.real_cost == Decimal("1200.00")
 
 
@@ -126,8 +126,8 @@ def test_cancel_request():
 
 
 def test_cliente_response():
-    response = ClienteResponse(id_cliente="CLI-001", nombre="Juan")
-    assert response.id_cliente == "CLI-001"
+    response = ClienteResponse(id_cliente=1, nombre="Juan")
+    assert response.id_cliente == 1
     assert response.nombre == "Juan"
 
 
@@ -142,57 +142,56 @@ def test_update_cliente_request():
 
 
 def test_list_clientes_response():
-    cliente1 = ClienteResponse(id_cliente="CLI-001", nombre="Juan")
-    cliente2 = ClienteResponse(id_cliente="CLI-002", nombre="Pedro")
+    cliente1 = ClienteResponse(id_cliente=1, nombre="Juan")
+    cliente2 = ClienteResponse(id_cliente=2, nombre="Pedro")
     response = ListClientesResponse(clientes=[cliente1, cliente2])
     assert len(response.clientes) == 2
 
 
 def test_vehiculo_response():
     response = VehiculoResponse(
-        id_vehiculo="VEH-001",
-        descripcion="ABC-123",
+        id_vehiculo=1,
+        placa="ABC-123",
         marca="Toyota",
         modelo="Corolla",
-        año=2020,
-        id_cliente="CLI-001",
-        cliente_nombre="Juan"
+        anio=2020,
+        id_cliente=1
     )
-    assert response.id_vehiculo == "VEH-001"
+    assert response.id_vehiculo == 1
     assert response.marca == "Toyota"
 
 
 def test_create_vehiculo_request():
     request = CreateVehiculoRequest(
-        descripcion="ABC-123",
-        id_cliente="CLI-001",
+        placa="ABC-123",
+        customer={"id_cliente": 1},
         marca="Toyota",
         modelo="Corolla",
-        año=2020
+        anio=2020
     )
-    assert request.descripcion == "ABC-123"
-    assert request.id_cliente == "CLI-001"
+    assert request.placa == "ABC-123"
+    assert request.customer.id_cliente == 1
 
 
 def test_update_vehiculo_request():
     request = UpdateVehiculoRequest(
-        descripcion="XYZ-789",
+        placa="XYZ-789",
         marca="Honda"
     )
-    assert request.descripcion == "XYZ-789"
+    assert request.placa == "XYZ-789"
     assert request.marca == "Honda"
 
 
 def test_list_vehiculos_response():
     vehiculo1 = VehiculoResponse(
-        id_vehiculo="VEH-001",
-        descripcion="ABC-123",
-        id_cliente="CLI-001"
+        id_vehiculo=1,
+        placa="ABC-123",
+        id_cliente=1
     )
     vehiculo2 = VehiculoResponse(
-        id_vehiculo="VEH-002",
-        descripcion="XYZ-789",
-        id_cliente="CLI-001"
+        id_vehiculo=2,
+        placa="XYZ-789",
+        id_cliente=1
     )
     response = ListVehiculosResponse(vehiculos=[vehiculo1, vehiculo2])
     assert len(response.vehiculos) == 2

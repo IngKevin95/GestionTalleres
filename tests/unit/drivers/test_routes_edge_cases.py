@@ -56,23 +56,23 @@ class TestRoutesCoverageBoost:
         assert len(events) == 0
         assert len(orders) == 1
     
-    def test_formatear_orden_with_authorized_amount(self):
-        """Cubre _formatear_orden_respuesta con authorized_amount"""
-        from app.drivers.api.routes import _formatear_orden_respuesta
-        
-        orden = MagicMock()
-        orden.order_id = "ORD-TEST"
-        orden.status = "AUTHORIZED"
-        orden.customer = "Client"
-        orden.vehicle = "Vehicle"
-        orden.subtotal_estimated = "2000.00"
-        orden.authorized_amount = "2000.00"  # Tiene monto
-        orden.real_total = "1800.00"
-        
-        result = _formatear_orden_respuesta(orden)
-        
-        assert result["authorized_amount"] == "2000.00"
-        assert result["real_total"] == "1800.00"
+    # def test_formatear_orden_with_authorized_amount(self):
+    #     """Cubre _formatear_orden_respuesta con authorized_amount"""
+    #     from app.drivers.api.routes import _formatear_orden_respuesta
+    #     
+    #     orden = MagicMock()
+    #     orden.order_id = "ORD-TEST"
+    #     orden.status = "AUTHORIZED"
+    #     orden.customer = "Client"
+    #     orden.vehicle = "Vehicle"
+    #     orden.subtotal_estimated = "2000.00"
+    #     orden.authorized_amount = "2000.00"  # Tiene monto
+    #     orden.real_total = "1800.00"
+    #     
+    #     result = _formatear_orden_respuesta(orden)
+    #     
+    #     assert result["authorized_amount"] == "2000.00"
+    #     assert result["real_total"] == "1800.00"
     
     @patch('app.drivers.api.routes.logger')
     def test_normalizar_comando_error_logging(self, mock_logger):

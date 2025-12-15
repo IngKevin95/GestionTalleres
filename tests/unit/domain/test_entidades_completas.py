@@ -216,10 +216,12 @@ def test_orden_crear_orden_existente():
     audit = AuditMock()
     accion = CrearOrden(repo, audit)
     
+    from app.application.dtos import CustomerIdentifierDTO, VehicleIdentifierDTO
+    
     dto = CrearOrdenDTO(
         order_id="ORD-001",
-        cliente="Juan",
-        vehiculo="Auto",
+        customer=CustomerIdentifierDTO(nombre="Juan"),
+        vehicle=VehicleIdentifierDTO(placa="Auto"),
         timestamp=datetime.utcnow()
     )
     

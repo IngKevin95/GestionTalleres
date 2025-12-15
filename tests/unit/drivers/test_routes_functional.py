@@ -82,7 +82,7 @@ def test_orden_a_dto_mapping():
     from app.domain.zona_horaria import ahora
     
     orden = Orden(
-        id_orden="ORD-001",
+        order_id="ORD-001",
         cliente="Juan",
         vehiculo="Auto",
         fecha_creacion=ahora()
@@ -99,11 +99,11 @@ def test_cliente_a_dto_mapping():
     
     cliente = Cliente(
         nombre="Juan Pérez",
-        id_cliente="CUST-001"
+        id_cliente=1  # ID debe ser int, no string
     )
     
     dto = cliente_a_dto(cliente)
-    assert dto.id_cliente == "CUST-001"
+    assert dto.id_cliente == 1
     assert dto.nombre == "Juan Pérez"
 
 
@@ -112,16 +112,16 @@ def test_vehiculo_a_dto_mapping():
     from app.application.mappers import vehiculo_a_dto
     
     vehiculo = Vehiculo(
-        descripcion="Auto Toyota",
-        id_cliente="CUST-001",
+        placa="ABC-123",  # placa, no descripcion
+        id_cliente=1,  # int, no string
         marca="Toyota",
         modelo="Corolla",
         anio=2020,
-        id_vehiculo="VEH-001"
+        id_vehiculo=1  # int, no string
     )
     
     dto = vehiculo_a_dto(vehiculo)
-    assert dto.id_vehiculo == "VEH-001"
+    assert dto.id_vehiculo == 1
     assert dto.marca == "Toyota"
     assert dto.modelo == "Corolla"
     assert dto.anio == 2020
