@@ -31,11 +31,18 @@ async def lifespan(app: FastAPI):
         logger.error(f"Error BD: {str(e)}", exc_info=True)
     
     yield
+    
+    logger.info("Cerrando aplicación")
 
 
 app = FastAPI(
     title="GestionTalleres API",
     version="1.0.0",
+    description="Sistema de gestión de órdenes de reparación en talleres automotrices",
+    contact={
+        "name": "GestionTalleres Support",
+        "email": "support@gestiontalleres.com"
+    },
     lifespan=lifespan
 )
 

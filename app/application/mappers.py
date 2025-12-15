@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 from decimal import Decimal
+from uuid import uuid4
 from ..domain.entidades import Orden, Servicio, Componente, Evento, Cliente, Vehiculo
 from ..domain.zona_horaria import ahora
 from ..domain.dinero import a_decimal
@@ -16,9 +17,10 @@ from .dtos import (
 ZULU_OFFSET = '+00:00'
 
 def crear_orden_dto(json_data: dict, ts_comando: Optional[str] = None) -> CrearOrdenDTO:
-    order_id = json_data.get("order_id", "")
-    if not order_id or not str(order_id).strip():
-        raise ValueError("order_id es requerido y no puede estar vacío")
+    order_id = json_data.get("order_id", "").strip() if json_data.get("order_id") else ""
+    if not order_id:
+        # Generar un order_id si no se proporciona
+        order_id = f"ORD-{uuid4().hex[:8].upper()}"
     
     customer_data = json_data.get("customer")
     if not customer_data:
@@ -179,10 +181,10 @@ def cancelar_dto(json_data: dict) -> CancelarDTO:
 
 def componente_a_dto(comp: Componente) -> ComponenteDTO:
     costo_real_str = str(comp.costo_real) if comp.costo_real else None
-    if comp.id_componente is None:
-        raise ValueError("Componente debe tener id_componente asignado")
+    # Si no tiene ID asignado, usar 0 (se asignará después de guardar)
+    component_id = comp.id_componente if comp.id_componente is not None else 0
     return ComponenteDTO(
-        id_componente=comp.id_componente,
+        id_componente=component_id,
         descripcion=comp.descripcion,
         costo_estimado=str(comp.costo_estimado),
         costo_real=costo_real_str
@@ -195,10 +197,10 @@ def servicio_a_dto(servicio: Servicio) -> ServicioDTO:
         comps.append(componente_a_dto(c))
     
     costo_real_str = str(servicio.costo_real) if servicio.costo_real else None
-    if servicio.id_servicio is None:
-        raise ValueError("Servicio debe tener id_servicio asignado")
+    # Si no tiene ID asignado, usar 0 (se asignará después de guardar)
+    service_id = servicio.id_servicio if servicio.id_servicio is not None else 0
     return ServicioDTO(
-        id_servicio=servicio.id_servicio,
+        id_servicio=service_id,
         descripcion=servicio.descripcion,
         costo_mano_obra_estimado=str(servicio.costo_mano_obra_estimado),
         componentes=comps,

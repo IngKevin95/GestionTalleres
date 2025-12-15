@@ -94,6 +94,7 @@ class RepositorioClienteSQL:
             self.sesion.flush()
             cliente.id_cliente = modelo.id_cliente
             self.sesion.commit()
+            return cliente
         except Exception as e:
             self.sesion.rollback()
             raise
