@@ -2,10 +2,10 @@
 import pytest
 from decimal import Decimal
 from datetime import datetime
-from app.domain.models.order import Orden
-from app.domain.models.service import Servicio
-from app.domain.models.component import Componente
-from app.domain.models.event import Evento
+from app.domain.entidades.order import Orden
+from app.domain.entidades.service import Servicio
+from app.domain.entidades.component import Componente
+from app.domain.entidades.event import Evento
 
 
 class TestOrdenModelCoverage:
@@ -14,18 +14,18 @@ class TestOrdenModelCoverage:
     def test_orden_model_creation(self):
         """Test crear Orden."""
         orden = Orden(
-            id_orden="ORD-001",
+            order_id="ORD-001",
             cliente="Cliente Test",
             vehiculo="Vehiculo Test",
             fecha_creacion=datetime.now()
         )
-        assert orden.id_orden == "ORD-001"
+        assert orden.order_id == "ORD-001"
         assert orden.cliente == "Cliente Test"
     
     def test_orden_model_con_monto_autorizado(self):
         """Test Orden con monto autorizado."""
         orden = Orden(
-            id_orden="ORD-001",
+            order_id="ORD-001",
             cliente="Cliente",
             vehiculo="Vehiculo",
             fecha_creacion=datetime.now()
@@ -36,7 +36,7 @@ class TestOrdenModelCoverage:
     def test_orden_model_con_version_autorizacion(self):
         """Test Orden con version de autorización."""
         orden = Orden(
-            id_orden="ORD-001",
+            order_id="ORD-001",
             cliente="Cliente",
             vehiculo="Vehiculo",
             fecha_creacion=datetime.now()

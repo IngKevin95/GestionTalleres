@@ -1,57 +1,8 @@
-from unittest.mock import Mock, AsyncMock, patch
-from fastapi import Request
-from app.drivers.api.middleware import LoggingMiddleware, BodyCapturingReceive, ResponseCapturingWrapper
-
-
-def test_body_capturing_receive():
-    receive_mock = AsyncMock()
-    receive_mock.return_value = {
-        "type": "http.request",
-        "body": b"test body",
-        "more_body": False
-    }
-    
-    capturer = BodyCapturingReceive(receive_mock)
-    
-    import asyncio
-    result = asyncio.run(capturer())
-    
-    assert capturer.get_body() == b"test body"
-
-
-def test_body_capturing_receive_multiple_chunks():
-    receive_mock = AsyncMock()
-    receive_mock.side_effect = [
-        {"type": "http.request", "body": b"chunk1", "more_body": True},
-        {"type": "http.request", "body": b"chunk2", "more_body": False}
-    ]
-    
-    capturer = BodyCapturingReceive(receive_mock)
-    
-    import asyncio
-    asyncio.run(capturer())
-    asyncio.run(capturer())
-    
-    assert capturer.get_body() == b"chunk1chunk2"
-
-
-def test_body_capturing_receive_reset():
-    receive_mock = AsyncMock()
-    capturer = BodyCapturingReceive(receive_mock)
-    
-    capturer.reset()
-    
-    assert capturer._current_index == 0
-
-
-def test_response_capturing_wrapper():
-    from starlette.responses import Response
-    
-    response_mock = Response(content=b"test content")
-    
-    wrapper = ResponseCapturingWrapper(response_mock)
-    
-    assert wrapper.response == response_mock
+from unittest.mock import Mock, AsyncMock, MagicMock
+from fastapi import FastAPI
+from fastapi.responses import JSONResponse
+import pytest
+from app.drivers.api.middleware import LoggingMiddleware
 
 
 def test_logging_middleware_init():
@@ -59,4 +10,59 @@ def test_logging_middleware_init():
     middleware = LoggingMiddleware(app_mock)
     
     assert middleware.app == app_mock
+
+
+@pytest.mark.asyncio
+async def test_logging_middleware_dispatch_exitoso():
+    app = FastAPI()
+    middleware = LoggingMiddleware(app)
+    
+    request = MagicMock()
+    request.method = "GET"
+    request.url.path = "/test"
+    request.client = MagicMock()
+    request.client.host = "127.0.0.1"
+    
+    response_mock = JSONResponse({"status": "ok"})
+    call_next = AsyncMock(return_value=response_mock)
+    
+    response = await middleware.dispatch(request, call_next)
+    
+    assert response.status_code == 200
+    call_next.assert_called_once_with(request)
+
+
+@pytest.mark.asyncio
+async def test_logging_middleware_dispatch_con_error():
+    app = FastAPI()
+    middleware = LoggingMiddleware(app)
+    
+    request = MagicMock()
+    request.method = "GET"
+    request.url.path = "/test"
+    request.client = MagicMock()
+    request.client.host = "127.0.0.1"
+    
+    call_next = AsyncMock(side_effect=ValueError("Error de prueba"))
+    
+    with pytest.raises(ValueError):
+        await middleware.dispatch(request, call_next)
+
+
+@pytest.mark.asyncio
+async def test_logging_middleware_sin_client():
+    app = FastAPI()
+    middleware = LoggingMiddleware(app)
+    
+    request = MagicMock()
+    request.method = "GET"
+    request.url.path = "/test"
+    request.client = None
+    
+    response_mock = JSONResponse({"status": "ok"})
+    call_next = AsyncMock(return_value=response_mock)
+    
+    response = await middleware.dispatch(request, call_next)
+    
+    assert response.status_code == 200
 

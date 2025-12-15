@@ -16,145 +16,145 @@ def test_action_service_import():
 
 def test_action_service_init():
     repo = Mock()
-    auditoria = Mock()
+    audit = Mock()
     
-    service = ActionService(repo=repo, auditoria=auditoria)
+    srv = ActionService(repo=repo, auditoria=audit)
     
-    assert service.repo == repo
-    assert service.auditoria == auditoria
+    assert srv.repo == repo
+    assert srv.auditoria == audit
 
 
-def test_action_service_has_procesar_comando_method():
+def test_procesar_comando_exists():
     repo = Mock()
-    auditoria = Mock()
-    service = ActionService(repo=repo, auditoria=auditoria)
+    audit = Mock()
+    srv = ActionService(repo=repo, auditoria=audit)
     
-    assert hasattr(service, 'procesar_comando')
-    assert callable(service.procesar_comando)
+    assert hasattr(srv, 'procesar_comando')
+    assert callable(srv.procesar_comando)
 
 
-def test_procesar_comando_with_empty_dict():
+def test_procesar_comando_empty():
     repo = Mock()
-    auditoria = Mock()
-    service = ActionService(repo=repo, auditoria=auditoria)
+    audit = Mock()
+    srv = ActionService(repo=repo, auditoria=audit)
     
-    resultado = service.procesar_comando({})
+    res = srv.procesar_comando({})
     
-    assert resultado is not None
-    assert len(resultado) == 3
+    assert res is not None
+    assert len(res) == 3
 
 
-def test_procesar_comando_returns_tuple_with_three_elements():
+def test_procesar_comando_returns_tuple():
     repo = Mock()
-    auditoria = Mock()
+    audit = Mock()
     repo.obtener.return_value = None
     
-    service = ActionService(repo=repo, auditoria=auditoria)
+    srv = ActionService(repo=repo, auditoria=audit)
     
-    comando = {"op": "UNKNOWN_OP", "data": {}}
-    resultado = service.procesar_comando(comando)
+    cmd = {"op": "UNKNOWN_OP", "data": {}}
+    res = srv.procesar_comando(cmd)
     
-    assert isinstance(resultado, tuple)
-    assert len(resultado) == 3
+    assert isinstance(res, tuple)
+    assert len(res) == 3
 
 
-def test_procesar_comando_unknown_operation():
+def test_procesar_comando_unknown():
     repo = Mock()
-    auditoria = Mock()
+    audit = Mock()
     repo.obtener.return_value = None
     
-    service = ActionService(repo=repo, auditoria=auditoria)
+    srv = ActionService(repo=repo, auditoria=audit)
     
-    comando = {"op": "UNKNOWN_OP", "data": {}}
-    orden_dto, eventos, error_dto = service.procesar_comando(comando)
+    cmd = {"op": "UNKNOWN_OP", "data": {}}
+    ord_dto, evts, err = srv.procesar_comando(cmd)
     
-    assert orden_dto is None
-    assert eventos == []
-    assert error_dto is not None
-    assert "desconocida" in error_dto.message.lower()
+    assert ord_dto is None
+    assert evts == []
+    assert err is not None
+    assert "desconocida" in err.message.lower()
 
 
-def test_procesar_comando_returns_error_for_invalid_op():
+def test_procesar_comando_invalid_op():
     repo = Mock()
-    auditoria = Mock()
+    audit = Mock()
     repo.obtener.return_value = None
     
-    service = ActionService(repo=repo, auditoria=auditoria)
+    srv = ActionService(repo=repo, auditoria=audit)
     
-    comando = {"op": "INVALID_OPERATION", "data": {}}
-    _, _, error_dto = service.procesar_comando(comando)
+    cmd = {"op": "INVALID_OPERATION", "data": {}}
+    _, _, err = srv.procesar_comando(cmd)
     
-    assert error_dto is not None
-    assert error_dto.code == CodigoError.INVALID_OPERATION.value
+    assert err is not None
+    assert err.code == CodigoError.INVALID_OPERATION.value
 
 
-def test_procesar_comando_retrieves_existing_order():
+def test_procesar_comando_obtiene_orden():
     repo = Mock()
-    auditoria = Mock()
+    audit = Mock()
     
-    orden_mock = Mock(spec=Orden)
-    orden_mock.eventos = []
-    repo.obtener.return_value = orden_mock
+    ord_mock = Mock(spec=Orden)
+    ord_mock.eventos = []
+    repo.obtener.return_value = ord_mock
     
-    service = ActionService(repo=repo, auditoria=auditoria)
+    srv = ActionService(repo=repo, auditoria=audit)
     
-    comando = {
+    cmd = {
         "op": "UNKNOWN_OP",
         "data": {"order_id": "ORD-001"}
     }
     
-    service.procesar_comando(comando)
+    srv.procesar_comando(cmd)
     
     repo.obtener.assert_called_with("ORD-001")
 
 
-def test_procesar_comando_counts_existing_events():
+def test_procesar_comando_cuenta_eventos():
     repo = Mock()
-    auditoria = Mock()
+    audit = Mock()
     
-    orden_mock = Mock(spec=Orden)
-    evento1 = Mock(spec=Evento)
-    evento2 = Mock(spec=Evento)
-    orden_mock.eventos = [evento1, evento2]
-    repo.obtener.return_value = orden_mock
+    ord_mock = Mock(spec=Orden)
+    evt1 = Mock(spec=Evento)
+    evt2 = Mock(spec=Evento)
+    ord_mock.eventos = [evt1, evt2]
+    repo.obtener.return_value = ord_mock
     
-    service = ActionService(repo=repo, auditoria=auditoria)
+    srv = ActionService(repo=repo, auditoria=audit)
     
-    comando = {
+    cmd = {
         "op": "UNKNOWN_OP",
         "data": {"order_id": "ORD-001"}
     }
     
-    resultado = service.procesar_comando(comando)
-    assert resultado is not None
+    res = srv.procesar_comando(cmd)
+    assert res is not None
 
 
-def test_procesar_comando_handles_missing_order_id():
+def test_procesar_comando_sin_order_id():
     repo = Mock()
-    auditoria = Mock()
+    audit = Mock()
     repo.obtener.return_value = None
     
-    service = ActionService(repo=repo, auditoria=auditoria)
+    srv = ActionService(repo=repo, auditoria=audit)
     
-    comando = {
+    cmd = {
         "op": "UNKNOWN_OP",
         "data": {}
     }
     
-    resultado = service.procesar_comando(comando)
+    res = srv.procesar_comando(cmd)
     
-    assert resultado is not None
-    assert len(resultado) == 3
+    assert res is not None
+    assert len(res) == 3
 
 
-def test_procesar_comando_handles_domain_error():
+def test_procesar_comando_error_dominio():
     repo = Mock()
-    auditoria = Mock()
+    audit = Mock()
     repo.obtener.return_value = None
     
-    service = ActionService(repo=repo, auditoria=auditoria)
+    srv = ActionService(repo=repo, auditoria=audit)
     
-    comando = {
+    cmd = {
         "op": "CREATE_ORDER",
         "data": {"order_id": "ORD-001"},
         "ts": datetime.now().isoformat()
@@ -166,48 +166,48 @@ def test_procesar_comando_handles_domain_error():
             mensaje="Orden no encontrada"
         )
         
-        resultado = service.procesar_comando(comando)
+        res = srv.procesar_comando(cmd)
         
-        assert resultado is not None
-        _, _, error_dto = resultado
-        assert error_dto is not None
+        assert res is not None
+        _, _, err = res
+        assert err is not None
 
 
-def test_procesar_comando_handles_generic_exception():
+def test_procesar_comando_exception():
     repo = Mock()
-    auditoria = Mock()
+    audit = Mock()
     repo.obtener.return_value = None
     
-    service = ActionService(repo=repo, auditoria=auditoria)
+    srv = ActionService(repo=repo, auditoria=audit)
     
-    comando = {
+    cmd = {
         "op": "CREATE_ORDER",
         "data": {},
         "ts": datetime.now().isoformat()
     }
     
     with patch('app.application.action_service.CrearOrden') as mock_action:
-        mock_action.return_value.ejecutar.side_effect = Exception("Generic error")
+        mock_action.return_value.ejecutar.side_effect = Exception("Error genérico")
         
-        resultado = service.procesar_comando(comando)
+        res = srv.procesar_comando(cmd)
         
-        _, _, error_dto = resultado
-        assert error_dto is not None
-        assert error_dto.code in ["INTERNAL_ERROR", "SEQUENCE_ERROR", "INVALID_OPERATION"]
+        _, _, err = res
+        assert err is not None
+        assert err.code in ["INTERNAL_ERROR", "SEQUENCE_ERROR", "INVALID_OPERATION"]
 
 
-def test_procesar_comando_reauth_error_with_order():
+def test_procesar_comando_reauth_con_orden():
     repo = Mock()
-    auditoria = Mock()
+    audit = Mock()
     
-    orden_mock = Mock(spec=Orden)
-    evento_mock = Mock(spec=Evento)
-    orden_mock.eventos = [evento_mock]
-    repo.obtener.return_value = orden_mock
+    ord_mock = Mock(spec=Orden)
+    evt_mock = Mock(spec=Evento)
+    ord_mock.eventos = [evt_mock]
+    repo.obtener.return_value = ord_mock
     
-    service = ActionService(repo=repo, auditoria=auditoria)
+    srv = ActionService(repo=repo, auditoria=audit)
     
-    comando = {
+    cmd = {
         "op": "SET_REAL_COST",
         "data": {"order_id": "ORD-001"},
         "ts": datetime.now().isoformat()
@@ -220,24 +220,24 @@ def test_procesar_comando_reauth_error_with_order():
         )
         
         with patch('app.application.action_service.orden_a_dto') as mock_mapper:
-            mock_orden_dto = Mock()
-            mock_orden_dto.events = [Mock()]
-            mock_mapper.return_value = mock_orden_dto
+            mock_ord_dto = Mock()
+            mock_ord_dto.events = [Mock()]
+            mock_mapper.return_value = mock_ord_dto
             
-            resultado = service.procesar_comando(comando)
+            res = srv.procesar_comando(cmd)
             
-            _, _, error_dto = resultado
-            assert error_dto is not None
+            _, _, err = res
+            assert err is not None
 
 
-def test_procesar_comando_reauth_error_without_order():
+def test_procesar_comando_reauth_sin_orden():
     repo = Mock()
-    auditoria = Mock()
+    audit = Mock()
     repo.obtener.return_value = None
     
-    service = ActionService(repo=repo, auditoria=auditoria)
+    srv = ActionService(repo=repo, auditoria=audit)
     
-    comando = {
+    cmd = {
         "op": "SET_REAL_COST",
         "data": {"order_id": "ORD-001"},
         "ts": datetime.now().isoformat()
@@ -249,112 +249,112 @@ def test_procesar_comando_reauth_error_without_order():
             mensaje="Requiere reautorización"
         )
         
-        resultado = service.procesar_comando(comando)
+        res = srv.procesar_comando(cmd)
         
-        _, _, error_dto = resultado
-        assert error_dto is not None
-        assert error_dto.code == CodigoError.REQUIRES_REAUTH.value
+        _, _, err = res
+        assert err is not None
+        assert err.code == CodigoError.REQUIRES_REAUTH.value
 
 
-def test_procesar_comando_returns_new_events():
+def test_procesar_comando_nuevos_eventos():
     repo = Mock()
-    auditoria = Mock()
+    audit = Mock()
     
-    orden_mock = Mock(spec=Orden)
-    evento1 = Mock(spec=Evento)
-    evento2 = Mock(spec=Evento)
-    evento3 = Mock(spec=Evento)
-    orden_mock.eventos = [evento1, evento2, evento3]
-    repo.obtener.return_value = orden_mock
+    ord_mock = Mock(spec=Orden)
+    evt1 = Mock(spec=Evento)
+    evt2 = Mock(spec=Evento)
+    evt3 = Mock(spec=Evento)
+    ord_mock.eventos = [evt1, evt2, evt3]
+    repo.obtener.return_value = ord_mock
     
-    service = ActionService(repo=repo, auditoria=auditoria)
+    srv = ActionService(repo=repo, auditoria=audit)
     
-    comando = {
+    cmd = {
         "op": "UNKNOWN_OP",
         "data": {"order_id": "ORD-001"}
     }
     
-    resultado = service.procesar_comando(comando)
+    res = srv.procesar_comando(cmd)
     
-    assert resultado is not None
+    assert res is not None
 
 
-def test_procesar_comando_no_events_for_error():
+def test_procesar_comando_error_sin_eventos():
     repo = Mock()
-    auditoria = Mock()
+    audit = Mock()
     repo.obtener.return_value = None
     
-    service = ActionService(repo=repo, auditoria=auditoria)
+    srv = ActionService(repo=repo, auditoria=audit)
     
-    comando = {
+    cmd = {
         "op": "UNKNOWN_OP",
         "data": {}
     }
     
-    _, _, _ = service.procesar_comando(comando)
+    _, _, _ = srv.procesar_comando(cmd)
 
 
-def test_procesar_comando_con_orden_existente():
-    repo_mock = Mock()
-    orden_mock = Mock()
-    orden_mock.eventos = []
-    repo_mock.obtener.return_value = orden_mock
+def test_procesar_comando_orden_existente():
+    repo = Mock()
+    ord_mock = Mock()
+    ord_mock.eventos = []
+    repo.obtener.return_value = ord_mock
     
-    auditoria_mock = Mock()
-    service = ActionService(repo=repo_mock, auditoria=auditoria_mock)
+    audit = Mock()
+    srv = ActionService(repo=repo, auditoria=audit)
     
-    comando = {
+    cmd = {
         "op": "UNKNOWN",
         "data": {"order_id": "ORD-001"},
         "ts": datetime.now()
     }
     
-    result = service.procesar_comando(comando)
+    res = srv.procesar_comando(cmd)
     
-    assert isinstance(result, tuple)
-    assert len(result) == 3
-    assert result[2] is not None
+    assert isinstance(res, tuple)
+    assert len(res) == 3
+    assert res[2] is not None
 
 
 def test_procesar_comando_sin_order_id():
-    repo_mock = Mock()
-    repo_mock.obtener.return_value = None
+    repo = Mock()
+    repo.obtener.return_value = None
     
-    auditoria_mock = Mock()
-    service = ActionService(repo=repo_mock, auditoria=auditoria_mock)
+    audit = Mock()
+    srv = ActionService(repo=repo, auditoria=audit)
     
-    comando = {
+    cmd = {
         "op": "UNKNOWN",
         "data": {},
         "ts": datetime.now()
     }
     
-    result = service.procesar_comando(comando)
+    res = srv.procesar_comando(cmd)
     
-    assert isinstance(result, tuple)
-    assert result[2] is not None
+    assert isinstance(res, tuple)
+    assert res[2] is not None
 
 
-def test_procesar_comando_sin_operacion():
-    repo_mock = Mock()
-    auditoria_mock = Mock()
-    service = ActionService(repo=repo_mock, auditoria=auditoria_mock)
+def test_procesar_comando_sin_op():
+    repo = Mock()
+    audit = Mock()
+    srv = ActionService(repo=repo, auditoria=audit)
     
-    comando = {"data": {}}
-    result = service.procesar_comando(comando)
+    cmd = {"data": {}}
+    res = srv.procesar_comando(cmd)
     
-    assert isinstance(result, tuple)
-    assert len(result) == 3
+    assert isinstance(res, tuple)
+    assert len(res) == 3
 
 
-def test_action_service_con_comando_con_timestamp():
-    repo_mock = Mock()
-    repo_mock.obtener.return_value = None
-    auditoria_mock = Mock()
-    service = ActionService(repo=repo_mock, auditoria=auditoria_mock)
+def test_procesar_comando_con_ts():
+    repo = Mock()
+    repo.obtener.return_value = None
+    audit = Mock()
+    srv = ActionService(repo=repo, auditoria=audit)
     
     ts = datetime.now()
-    comando = {"op": "test_op", "data": {}, "ts": ts}
-    result = service.procesar_comando(comando)
+    cmd = {"op": "test_op", "data": {}, "ts": ts}
+    res = srv.procesar_comando(cmd)
     
-    assert isinstance(result, tuple)
+    assert isinstance(res, tuple)

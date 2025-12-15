@@ -12,20 +12,20 @@ from app.domain.enums.order_status import EstadoOrden
 
 def test_crear_orden_basica():
     orden = Orden(
-        id_orden="ORD-001",
+        order_id="ORD-001",
         cliente="Juan Pérez",
         vehiculo="Toyota Corolla",
         fecha_creacion=datetime.now()
     )
     
-    assert orden.id_orden == "ORD-001"
+    assert orden.order_id == "ORD-001"
     assert orden.cliente == "Juan Pérez"
     assert orden.vehiculo == "Toyota Corolla"
 
 
 def test_orden_estado_inicial():
     orden = Orden(
-        id_orden="ORD-001",
+        order_id="ORD-001",
         cliente="Test",
         vehiculo="Test",
         fecha_creacion=datetime.now()
@@ -35,7 +35,7 @@ def test_orden_estado_inicial():
 
 def test_orden_version_inicial():
     orden = Orden(
-        id_orden="ORD-001",
+        order_id="ORD-001",
         cliente="Test",
         vehiculo="Test",
         fecha_creacion=datetime.now()
@@ -44,15 +44,15 @@ def test_orden_version_inicial():
 
 
 def test_crear_cliente():
-    cliente = Cliente(nombre="Juan Pérez", id_cliente="C001")
-    assert cliente.id_cliente == "C001"
+    cliente = Cliente(nombre="Juan Pérez", id_cliente=1)
+    assert cliente.id_cliente == 1
     assert cliente.nombre == "Juan Pérez"
 
 
 def test_crear_vehiculo():
-    vehiculo = Vehiculo(descripcion="Toyota Corolla 2020", id_cliente="C001", id_vehiculo="V001")
-    assert vehiculo.id_vehiculo == "V001"
-    assert vehiculo.descripcion == "Toyota Corolla 2020"
+    vehiculo = Vehiculo(placa="ABC-123", id_cliente=1, id_vehiculo=1)
+    assert vehiculo.id_vehiculo == 1
+    assert vehiculo.placa == "ABC-123"
 
 
 def test_crear_servicio():

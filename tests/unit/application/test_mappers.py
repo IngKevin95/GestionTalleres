@@ -1,11 +1,11 @@
 from decimal import Decimal
 from datetime import datetime, timezone
 from app.application.mappers import (
-    json_a_crear_orden_dto, json_a_agregar_servicio_dto,
-    json_a_establecer_estado_diagnosticado_dto, json_a_autorizar_dto,
-    json_a_establecer_estado_en_proceso_dto, json_a_establecer_costo_real_dto,
-    json_a_intentar_completar_dto, json_a_reautorizar_dto,
-    json_a_entregar_dto, json_a_cancelar_dto,
+    crear_orden_dto, agregar_servicio_dto,
+    estado_diagnosticado_dto, autorizar_dto,
+    estado_en_proceso_dto, costo_real_dto,
+    intentar_completar_dto, reautorizar_dto,
+    entregar_dto, cancelar_dto,
     componente_a_dto, servicio_a_dto, evento_a_dto, orden_a_dto,
     cliente_a_dto, vehiculo_a_dto
 )
@@ -13,31 +13,33 @@ from app.domain.entidades import Orden, Servicio, Componente, Evento, Cliente, V
 from app.domain.enums import EstadoOrden
 
 
-def test_json_a_crear_orden_dto():
-    json_data = {
+def test_crear_orden_dto():
+    data = {
         "order_id": "ORD-001",
         "customer": "Juan Pérez",
         "vehicle": "Toyota Corolla"
     }
-    dto = json_a_crear_orden_dto(json_data, "2025-01-01T10:00:00Z")
+    dto = crear_orden_dto(data, "2025-01-01T10:00:00Z")
     assert dto.order_id == "ORD-001"
-    assert dto.cliente == "Juan Pérez"
-    assert dto.vehiculo == "Toyota Corolla"
+    assert dto.customer.nombre == "Juan Pérez"
+    assert dto.vehicle.placa == "Toyota Corolla"
     assert isinstance(dto.timestamp, datetime)
 
 
-def test_json_a_crear_orden_dto_sin_order_id():
-    json_data = {
+def test_crear_orden_dto_sin_order_id():
+    data = {
         "customer": "Juan",
         "vehicle": "Auto"
     }
-    dto = json_a_crear_orden_dto(json_data)
-    assert dto.cliente == "Juan"
-    assert dto.order_id is None
+    try:
+        crear_orden_dto(data)
+        assert False
+    except ValueError:
+        pass
 
 
-def test_json_a_agregar_servicio_dto():
-    json_data = {
+def test_agregar_servicio_dto():
+    data = {
         "order_id": "ORD-001",
         "service": {
             "description": "Cambio de aceite",
@@ -47,7 +49,7 @@ def test_json_a_agregar_servicio_dto():
             ]
         }
     }
-    dto = json_a_agregar_servicio_dto(json_data)
+    dto = agregar_servicio_dto(data)
     assert dto.order_id == "ORD-001"
     assert dto.descripcion == "Cambio de aceite"
     assert dto.costo_mano_obra == Decimal("500.00")
@@ -55,90 +57,91 @@ def test_json_a_agregar_servicio_dto():
     assert dto.componentes[0]["description"] == "Aceite"
 
 
-def test_json_a_agregar_servicio_dto_formato_alternativo():
-    json_data = {
+def test_agregar_servicio_dto_formato_alternativo():
+    data = {
         "order_id": "ORD-001",
         "description": "Servicio",
         "labor_estimated_cost": "1000.00",
         "components": []
     }
-    dto = json_a_agregar_servicio_dto(json_data)
+    dto = agregar_servicio_dto(data)
     assert dto.descripcion == "Servicio"
     assert dto.costo_mano_obra == Decimal("1000.00")
 
 
-def test_json_a_establecer_estado_diagnosticado_dto():
-    json_data = {"order_id": "ORD-001"}
-    dto = json_a_establecer_estado_diagnosticado_dto(json_data)
+def test_estado_diagnosticado_dto():
+    data = {"order_id": "ORD-001"}
+    dto = estado_diagnosticado_dto(data)
     assert dto.order_id == "ORD-001"
 
 
-def test_json_a_autorizar_dto():
-    json_data = {"order_id": "ORD-001"}
-    dto = json_a_autorizar_dto(json_data, "2025-01-01T10:00:00Z")
+def test_autorizar_dto():
+    data = {"order_id": "ORD-001"}
+    dto = autorizar_dto(data, "2025-01-01T10:00:00Z")
     assert dto.order_id == "ORD-001"
     assert isinstance(dto.timestamp, datetime)
 
 
-def test_json_a_establecer_estado_en_proceso_dto():
-    json_data = {"order_id": "ORD-001"}
-    dto = json_a_establecer_estado_en_proceso_dto(json_data)
+def test_estado_en_proceso_dto():
+    data = {"order_id": "ORD-001"}
+    dto = estado_en_proceso_dto(data)
     assert dto.order_id == "ORD-001"
 
 
-def test_json_a_establecer_costo_real_dto():
-    json_data = {
+def test_costo_real_dto():
+    data = {
         "order_id": "ORD-001",
-        "service_id": "SERV-123",
+        "service_id": 123,
         "real_cost": "1500.00",
         "completed": True,
         "components_real": {
-            "COMP-1": "200.00"
+            "1": "200.00"
         }
     }
-    dto = json_a_establecer_costo_real_dto(json_data)
+    dto = costo_real_dto(data)
     assert dto.order_id == "ORD-001"
-    assert dto.servicio_id == "SERV-123"
+    assert dto.servicio_id == 123
     assert dto.costo_real == Decimal("1500.00")
     assert dto.completed is True
-    assert "COMP-1" in dto.componentes_reales
+    assert 1 in dto.componentes_reales
 
 
-def test_json_a_intentar_completar_dto():
-    json_data = {"order_id": "ORD-001"}
-    dto = json_a_intentar_completar_dto(json_data)
+def test_intentar_completar_dto():
+    data = {"order_id": "ORD-001"}
+    dto = intentar_completar_dto(data)
     assert dto.order_id == "ORD-001"
 
 
-def test_json_a_reautorizar_dto():
-    json_data = {
+def test_reautorizar_dto():
+    data = {
         "order_id": "ORD-001",
         "new_authorized_amount": "15000.00"
     }
-    dto = json_a_reautorizar_dto(json_data, "2025-01-01T10:00:00Z")
+    dto = reautorizar_dto(data, "2025-01-01T10:00:00Z")
     assert dto.order_id == "ORD-001"
     assert dto.nuevo_monto_autorizado == Decimal("15000.00")
     assert isinstance(dto.timestamp, datetime)
 
 
-def test_json_a_entregar_dto():
-    json_data = {"order_id": "ORD-001"}
-    dto = json_a_entregar_dto(json_data)
+def test_entregar_dto():
+    data = {"order_id": "ORD-001"}
+    dto = entregar_dto(data)
     assert dto.order_id == "ORD-001"
 
 
-def test_json_a_cancelar_dto():
-    json_data = {
+def test_cancelar_dto():
+    data = {
         "order_id": "ORD-001",
         "reason": "Cliente canceló"
     }
-    dto = json_a_cancelar_dto(json_data)
+    dto = cancelar_dto(data)
     assert dto.order_id == "ORD-001"
     assert dto.motivo == "Cliente canceló"
 
 
 def test_componente_a_dto():
     comp = Componente("Aceite", Decimal("300.00"))
+    comp.id_componente = 1
     comp.costo_real = Decimal("350.00")
     dto = componente_a_dto(comp)
     assert dto.descripcion == "Aceite"
@@ -148,17 +151,20 @@ def test_componente_a_dto():
 
 def test_componente_a_dto_sin_costo_real():
     comp = Componente("Filtro", Decimal("200.00"))
+    comp.id_componente = 2
     dto = componente_a_dto(comp)
     assert dto.costo_real is None
 
 
 def test_servicio_a_dto():
-    servicio = Servicio("Cambio de aceite", Decimal("500.00"))
-    servicio.componentes.append(Componente("Aceite", Decimal("300.00")))
-    servicio.costo_real = Decimal("850.00")
-    servicio.completado = True
+    srv = Servicio("Cambio de aceite", Decimal("500.00"))
+    srv.id_servicio = 1
+    srv.componentes.append(Componente("Aceite", Decimal("300.00")))
+    srv.componentes[0].id_componente = 1
+    srv.costo_real = Decimal("850.00")
+    srv.completado = True
     
-    dto = servicio_a_dto(servicio)
+    dto = servicio_a_dto(srv)
     assert dto.descripcion == "Cambio de aceite"
     assert dto.costo_mano_obra_estimado == "500.00"
     assert dto.costo_real == "850.00"
@@ -167,23 +173,24 @@ def test_servicio_a_dto():
 
 
 def test_evento_a_dto():
-    evento = Evento("CREATED", datetime.now(timezone.utc), {})
-    dto = evento_a_dto(evento, "ORD-001")
+    evt = Evento("CREATED", datetime.now(timezone.utc), {})
+    dto = evento_a_dto(evt, "ORD-001")
     assert dto.order_id == "ORD-001"
     assert dto.type == "CREATED"
 
 
 def test_orden_a_dto():
-    orden = Orden("ORD-001", "Juan", "Auto", datetime.now(timezone.utc))
-    orden.estado = EstadoOrden.AUTHORIZED
-    orden.monto_autorizado = Decimal("1160.00")
-    orden.version_autorizacion = 1
+    ord = Orden("ORD-001", "Juan", "Auto", datetime.now(timezone.utc))
+    ord.estado = EstadoOrden.AUTHORIZED
+    ord.monto_autorizado = Decimal("1160.00")
+    ord.version_autorizacion = 1
     
-    servicio = Servicio("Servicio", Decimal("1000.00"))
-    orden.servicios.append(servicio)
-    orden.eventos.append(Evento("CREATED", datetime.now(timezone.utc), {}))
+    srv = Servicio("Servicio", Decimal("1000.00"))
+    srv.id_servicio = 1
+    ord.servicios.append(srv)
+    ord.eventos.append(Evento("CREATED", datetime.now(timezone.utc), {}))
     
-    dto = orden_a_dto(orden)
+    dto = orden_a_dto(ord)
     assert dto.order_id == "ORD-001"
     assert dto.status == "AUTHORIZED"
     assert dto.customer == "Juan"
@@ -194,26 +201,28 @@ def test_orden_a_dto():
     assert len(dto.events) == 1
 
 
-def test_orden_a_dto_sin_monto_autorizado():
-    orden = Orden("ORD-001", "Juan", "Auto", datetime.now(timezone.utc))
-    dto = orden_a_dto(orden)
+def test_orden_a_dto_sin_monto():
+    ord = Orden("ORD-001", "Juan", "Auto", datetime.now(timezone.utc))
+    dto = orden_a_dto(ord)
     assert dto.authorized_amount is None
 
 
 def test_cliente_a_dto():
-    cliente = Cliente("Juan Pérez")
-    dto = cliente_a_dto(cliente)
+    c = Cliente("Juan Pérez")
+    c.id_cliente = 1
+    dto = cliente_a_dto(c)
     assert dto.nombre == "Juan Pérez"
-    assert dto.id_cliente == cliente.id_cliente
+    assert dto.id_cliente == 1
 
 
 def test_vehiculo_a_dto():
-    vehiculo = Vehiculo("ABC-123", "CLI-001", "Toyota", "Corolla", 2020)
-    dto = vehiculo_a_dto(vehiculo, "Juan Pérez")
-    assert dto.descripcion == "ABC-123"
+    v = Vehiculo("ABC-123", 1, "Toyota", "Corolla", 2020)
+    v.id_vehiculo = 1
+    dto = vehiculo_a_dto(v, "Juan Pérez")
+    assert dto.placa == "ABC-123"
     assert dto.marca == "Toyota"
     assert dto.modelo == "Corolla"
     assert dto.anio == 2020
-    assert dto.id_cliente == "CLI-001"
+    assert dto.id_cliente == 1
     assert dto.cliente_nombre == "Juan Pérez"
 

@@ -131,116 +131,102 @@ def test_vehiculo_a_dto_mapping():
 # Tests para JSON to DTO conversions
 # ============================================================================
 
-def test_json_a_crear_orden_dto():
-    """Test conversión JSON a CrearOrdenDTO."""
-    from app.application.mappers import json_a_crear_orden_dto
-    from app.domain.zona_horaria import ahora
+def test_crear_orden_dto():
+    from app.application.mappers import crear_orden_dto
     
-    json_data = {
+    data = {
+        "order_id": "ORD-001",
         "customer": "Juan",
         "vehicle": "Auto"
     }
     
-    dto = json_a_crear_orden_dto(json_data)
-    assert dto.cliente == "Juan"
-    assert dto.vehiculo == "Auto"
+    dto = crear_orden_dto(data)
+    assert dto.order_id == "ORD-001"
+    assert dto.customer.nombre == "Juan"
+    assert dto.vehicle.placa == "Auto"
     assert dto.timestamp is not None
 
 
-def test_json_a_agregar_servicio_dto():
-    """Test conversión JSON a AgregarServicioDTO."""
-    from app.application.mappers import json_a_agregar_servicio_dto
-    from decimal import Decimal
+def test_agregar_servicio_dto():
+    from app.application.mappers import agregar_servicio_dto
     
-    json_data = {
+    data = {
         "order_id": "ORD-001",
         "description": "Cambio de aceite",
         "labor_estimated_cost": "500.00"
     }
     
-    dto = json_a_agregar_servicio_dto(json_data)
+    dto = agregar_servicio_dto(data)
     assert dto.order_id == "ORD-001"
     assert dto.descripcion == "Cambio de aceite"
 
 
-def test_json_a_autorizar_dto():
-    """Test conversión JSON a AutorizarDTO."""
-    from app.application.mappers import json_a_autorizar_dto
+def test_autorizar_dto():
+    from app.application.mappers import autorizar_dto
     
-    json_data = {
-        "order_id": "ORD-001"
-    }
+    data = {"order_id": "ORD-001"}
     
-    dto = json_a_autorizar_dto(json_data)
+    dto = autorizar_dto(data)
     assert dto.order_id == "ORD-001"
     assert dto.timestamp is not None
 
 
-def test_json_a_establecer_costo_real_dto():
-    """Test conversión JSON a EstablecerCostoRealDTO."""
-    from app.application.mappers import json_a_establecer_costo_real_dto
+def test_costo_real_dto():
+    from app.application.mappers import costo_real_dto
     from decimal import Decimal
     
-    json_data = {
+    data = {
         "order_id": "ORD-001",
         "real_cost": "1200.00"
     }
     
-    dto = json_a_establecer_costo_real_dto(json_data)
+    dto = costo_real_dto(data)
     assert dto.order_id == "ORD-001"
     assert dto.costo_real == Decimal("1200.00")
 
 
-def test_json_a_entregar_dto():
-    """Test conversión JSON a EntregarDTO."""
-    from app.application.mappers import json_a_entregar_dto
+def test_entregar_dto():
+    from app.application.mappers import entregar_dto
     
-    json_data = {
-        "order_id": "ORD-001"
-    }
+    data = {"order_id": "ORD-001"}
     
-    dto = json_a_entregar_dto(json_data)
+    dto = entregar_dto(data)
     assert dto.order_id == "ORD-001"
 
 
-def test_json_a_cancelar_dto():
-    """Test conversión JSON a CancelarDTO."""
-    from app.application.mappers import json_a_cancelar_dto
+def test_cancelar_dto():
+    from app.application.mappers import cancelar_dto
     
-    json_data = {
+    data = {
         "order_id": "ORD-001",
         "reason": "Cliente cambió de opinión"
     }
     
-    dto = json_a_cancelar_dto(json_data)
+    dto = cancelar_dto(data)
     assert dto.order_id == "ORD-001"
     assert dto.motivo == "Cliente cambió de opinión"
 
 
-def test_json_a_reautorizar_dto():
-    """Test conversión JSON a ReautorizarDTO."""
-    from app.application.mappers import json_a_reautorizar_dto
+def test_reautorizar_dto():
+    from app.application.mappers import reautorizar_dto
     from decimal import Decimal
     
-    json_data = {
+    data = {
         "order_id": "ORD-001",
         "new_authorized_amount": "1500.00"
     }
     
-    dto = json_a_reautorizar_dto(json_data)
+    dto = reautorizar_dto(data)
     assert dto.order_id == "ORD-001"
     assert dto.nuevo_monto_autorizado == Decimal("1500.00")
 
 
-def test_json_a_intentar_completar_dto():
-    """Test conversión JSON a IntentarCompletarDTO."""
-    from app.application.mappers import json_a_intentar_completar_dto
+def test_intentar_completar_dto():
+    from app.application.mappers import intentar_completar_dto
     
-    json_data = {
-        "order_id": "ORD-001"
-    }
+    data = {"order_id": "ORD-001"}
     
-    dto = json_a_intentar_completar_dto(json_data)
+    dto = intentar_completar_dto(data)
     assert dto.order_id == "ORD-001"
 
 
@@ -281,19 +267,18 @@ def test_routes_dtos_import():
 
 
 def test_routes_mappers_all_exist():
-    """Test que todos los mappers existen."""
-    from app.drivers.api.routes import (
+    from app.application.mappers import (
         orden_a_dto, cliente_a_dto, vehiculo_a_dto,
-        json_a_crear_orden_dto, json_a_agregar_servicio_dto,
-        json_a_autorizar_dto, json_a_reautorizar_dto,
-        json_a_establecer_costo_real_dto, json_a_intentar_completar_dto,
-        json_a_entregar_dto, json_a_cancelar_dto
+        crear_orden_dto, agregar_servicio_dto,
+        autorizar_dto, reautorizar_dto,
+        costo_real_dto, intentar_completar_dto,
+        entregar_dto, cancelar_dto
     )
     
     assert callable(orden_a_dto)
     assert callable(cliente_a_dto)
     assert callable(vehiculo_a_dto)
-    assert callable(json_a_crear_orden_dto)
+    assert callable(crear_orden_dto)
 
 
 def test_routes_logger_initialized():

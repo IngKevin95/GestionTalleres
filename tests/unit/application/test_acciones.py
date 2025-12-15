@@ -21,11 +21,11 @@ class RepositorioOrdenMock(RepositorioOrden):
     def __init__(self):
         self._ordenes: Dict[str, Orden] = {}
     
-    def obtener(self, id_orden: str) -> Optional[Orden]:
-        return self._ordenes.get(id_orden)
+    def obtener(self, order_id: str) -> Optional[Orden]:
+        return self._ordenes.get(order_id)
     
     def guardar(self, orden: Orden) -> None:
-        self._ordenes[orden.id_orden] = orden
+        self._ordenes[orden.order_id] = orden
 
 
 class AlmacenEventosMock(AlmacenEventos):
@@ -47,18 +47,20 @@ def test_crear_orden():
     audit = AlmacenEventosMock()
     accion = CrearOrden(repo, audit)
     
+    from app.application.dtos import CustomerIdentifierDTO, VehicleIdentifierDTO
     dto = CrearOrdenDTO(
-        cliente="Juan Pérez",
-        vehiculo="Toyota Corolla",
-        timestamp=datetime.utcnow()
+        customer=CustomerIdentifierDTO(nombre="Juan Pérez"),
+        vehicle=VehicleIdentifierDTO(placa="Toyota Corolla"),
+        timestamp=datetime.utcnow(),
+        order_id="ORD-001"
     )
     
-    resultado = accion.ejecutar(dto)
-    assert resultado.status == "CREATED"
-    assert resultado.customer == "Juan Pérez"
+    res = accion.ejecutar(dto)
+    assert res.status == "CREATED"
+    assert res.customer == "Juan Pérez"
     
-    orden = repo.obtener(resultado.order_id)
-    assert orden is not None
+    ord = repo.obtener(res.order_id)
+    assert ord is not None
 
 
 def test_crear_orden_sin_order_id():
@@ -66,35 +68,40 @@ def test_crear_orden_sin_order_id():
     audit = AlmacenEventosMock()
     accion = CrearOrden(repo, audit)
     
+    from app.application.dtos import CustomerIdentifierDTO, VehicleIdentifierDTO
     dto = CrearOrdenDTO(
-        cliente="Juan",
-        vehiculo="Auto",
-        timestamp=datetime.utcnow()
+        customer=CustomerIdentifierDTO(nombre="Juan"),
+        vehicle=VehicleIdentifierDTO(placa="Auto"),
+        timestamp=datetime.utcnow(),
+        order_id="ORD-002"
     )
     
-    resultado = accion.ejecutar(dto)
-    assert resultado.order_id is not None
-    assert resultado.order_id.startswith("ORD-")
+    res = accion.ejecutar(dto)
+    assert res.order_id is not None
 
 
 def test_agregar_servicio():
-    repo, auditoria = crear_fixtures()
+    repo, audit = crear_fixtures()
     
-    crear = CrearOrden(repo, auditoria)
-    orden_dto = crear.ejecutar(CrearOrdenDTO(
-        cliente="Juan", vehiculo="Auto", timestamp=datetime.utcnow()
+    from app.application.dtos import CustomerIdentifierDTO, VehicleIdentifierDTO
+    crear = CrearOrden(repo, audit)
+    ord_dto = crear.ejecutar(CrearOrdenDTO(
+        customer=CustomerIdentifierDTO(nombre="Juan"),
+        vehicle=VehicleIdentifierDTO(placa="Auto"),
+        timestamp=datetime.utcnow(),
+        order_id="ORD-001"
     ))
     
-    agregar = AgregarServicio(repo, auditoria)
-    servicio_dto = AgregarServicioDTO(
-        order_id=orden_dto.order_id,
+    agregar = AgregarServicio(repo, audit)
+    srv_dto = AgregarServicioDTO(
+        order_id=ord_dto.order_id,
         descripcion="Cambio de aceite",
         costo_mano_obra=Decimal("500.00"),
         componentes=[{"description": "Aceite", "estimated_cost": "300.00"}]
     )
     
-    resultado = agregar.ejecutar(servicio_dto)
-    assert len(resultado.services) == 1
+    res = agregar.ejecutar(srv_dto)
+    assert len(res.services) == 1
 
 
 def test_agregar_servicio_orden_no_existe():
@@ -111,7 +118,7 @@ def test_agregar_servicio_orden_no_existe():
     
     try:
         accion.ejecutar(dto)
-        assert False, "Debe lanzar error"
+        assert False
     except ErrorDominio as e:
         assert e.codigo == CodigoError.ORDER_NOT_FOUND
 
@@ -120,8 +127,8 @@ def test_agregar_servicio_con_componentes():
     repo = RepositorioOrdenMock()
     audit = AlmacenEventosMock()
     
-    orden = Orden("ORD-001", "Juan", "Auto", datetime.utcnow())
-    repo.guardar(orden)
+    ord = Orden("ORD-001", "Juan", "Auto", datetime.utcnow())
+    repo.guardar(ord)
     
     accion = AgregarServicio(repo, audit)
     dto = AgregarServicioDTO(
@@ -134,17 +141,17 @@ def test_agregar_servicio_con_componentes():
         ]
     )
     
-    resultado = accion.ejecutar(dto)
-    assert len(resultado.services) == 1
-    assert len(resultado.services[0].componentes) == 2
+    res = accion.ejecutar(dto)
+    assert len(res.services) == 1
+    assert len(res.services[0].componentes) == 2
 
 
-def test_agregar_servicio_componente_sin_costo():
+def test_agregar_servicio_comp_sin_costo():
     repo = RepositorioOrdenMock()
     audit = AlmacenEventosMock()
     
-    orden = Orden("ORD-001", "Juan", "Auto", datetime.utcnow())
-    repo.guardar(orden)
+    ord = Orden("ORD-001", "Juan", "Auto", datetime.utcnow())
+    repo.guardar(ord)
     
     accion = AgregarServicio(repo, audit)
     dto = AgregarServicioDTO(
@@ -156,39 +163,43 @@ def test_agregar_servicio_componente_sin_costo():
         ]
     )
     
-    resultado = accion.ejecutar(dto)
-    assert len(resultado.services) == 1
-    assert len(resultado.services[0].componentes) == 1
+    res = accion.ejecutar(dto)
+    assert len(res.services) == 1
+    assert len(res.services[0].componentes) == 1
 
 
 def test_autorizar():
-    r = RepositorioOrdenMock()
-    a = AlmacenEventosMock()
+    repo = RepositorioOrdenMock()
+    audit = AlmacenEventosMock()
     
-    crear = CrearOrden(r, a)
-    orden_dto = crear.ejecutar(CrearOrdenDTO(
-        cliente="Juan", vehiculo="Auto", timestamp=datetime.utcnow()
+    from app.application.dtos import CustomerIdentifierDTO, VehicleIdentifierDTO
+    crear = CrearOrden(repo, audit)
+    ord_dto = crear.ejecutar(CrearOrdenDTO(
+        customer=CustomerIdentifierDTO(nombre="Juan"),
+        vehicle=VehicleIdentifierDTO(placa="Auto"),
+        timestamp=datetime.utcnow(),
+        order_id="ORD-001"
     ))
     
-    agregar = AgregarServicio(r, a)
+    agregar = AgregarServicio(repo, audit)
     agregar.ejecutar(AgregarServicioDTO(
-        order_id=orden_dto.order_id,
+        order_id=ord_dto.order_id,
         descripcion="Servicio",
         costo_mano_obra=Decimal("1000.00"),
         componentes=[]
     ))
     
-    diagnosticar = EstablecerEstadoDiagnosticado(r, a)
-    diagnosticar.ejecutar(EstablecerEstadoDiagnosticadoDTO(order_id=orden_dto.order_id))
+    diagnosticar = EstablecerEstadoDiagnosticado(repo, audit)
+    diagnosticar.ejecutar(EstablecerEstadoDiagnosticadoDTO(order_id=ord_dto.order_id))
     
-    autorizar = Autorizar(r, a)
-    resultado = autorizar.ejecutar(AutorizarDTO(
-        order_id=orden_dto.order_id,
+    autorizar = Autorizar(repo, audit)
+    res = autorizar.ejecutar(AutorizarDTO(
+        order_id=ord_dto.order_id,
         timestamp=datetime.utcnow()
     ))
     
-    assert resultado.status == "AUTHORIZED"
-    assert resultado.authorized_amount is not None
+    assert res.status == "AUTHORIZED"
+    assert res.authorized_amount is not None
 
 
 def test_autorizar_orden_no_existe():
@@ -200,7 +211,7 @@ def test_autorizar_orden_no_existe():
     
     try:
         accion.ejecutar(dto)
-        assert False, "Debe lanzar error"
+        assert False
     except ErrorDominio as e:
         assert e.codigo == CodigoError.ORDER_NOT_FOUND
 
@@ -209,12 +220,12 @@ def test_reautorizar():
     repo = RepositorioOrdenMock()
     audit = AlmacenEventosMock()
     
-    orden = Orden("ORD-001", "Juan", "Auto", datetime.utcnow())
-    orden.estado = EstadoOrden.WAITING_FOR_APPROVAL
-    orden.monto_autorizado = Decimal("1160.00")
-    orden.total_real = Decimal("1300.00")
-    orden.version_autorizacion = 1
-    repo.guardar(orden)
+    ord = Orden("ORD-001", "Juan", "Auto", datetime.utcnow())
+    ord.estado = EstadoOrden.WAITING_FOR_APPROVAL
+    ord.monto_autorizado = Decimal("1160.00")
+    ord.total_real = Decimal("1300.00")
+    ord.version_autorizacion = 1
+    repo.guardar(ord)
     
     accion = Reautorizar(repo, audit)
     dto = ReautorizarDTO(
@@ -223,23 +234,23 @@ def test_reautorizar():
         timestamp=datetime.utcnow()
     )
     
-    resultado = accion.ejecutar(dto)
-    assert resultado.status == "AUTHORIZED"
-    assert resultado.authorized_amount == "1500.00"
+    res = accion.ejecutar(dto)
+    assert res.status == "AUTHORIZED"
+    assert res.authorized_amount == "1500.00"
     
-    orden_actualizada = repo.obtener("ORD-001")
-    assert orden_actualizada.version_autorizacion == 2
+    ord_act = repo.obtener("ORD-001")
+    assert ord_act.version_autorizacion == 2
 
 
 def test_reautorizar_monto_insuficiente():
     repo = RepositorioOrdenMock()
     audit = AlmacenEventosMock()
     
-    orden = Orden("ORD-001", "Juan", "Auto", datetime.utcnow())
-    orden.estado = EstadoOrden.WAITING_FOR_APPROVAL
-    orden.monto_autorizado = Decimal("1160.00")
-    orden.total_real = Decimal("1300.00")
-    repo.guardar(orden)
+    ord = Orden("ORD-001", "Juan", "Auto", datetime.utcnow())
+    ord.estado = EstadoOrden.WAITING_FOR_APPROVAL
+    ord.monto_autorizado = Decimal("1160.00")
+    ord.total_real = Decimal("1300.00")
+    repo.guardar(ord)
     
     accion = Reautorizar(repo, audit)
     dto = ReautorizarDTO(
@@ -250,7 +261,7 @@ def test_reautorizar_monto_insuficiente():
     
     try:
         accion.ejecutar(dto)
-        assert False, "Debe lanzar error"
+        assert False
     except ErrorDominio as e:
         assert e.codigo == CodigoError.INVALID_AMOUNT
 
@@ -268,7 +279,7 @@ def test_reautorizar_orden_no_existe():
     
     try:
         accion.ejecutar(dto)
-        assert False, "Debe lanzar error"
+        assert False
     except ErrorDominio as e:
         assert e.codigo == CodigoError.ORDER_NOT_FOUND
 
@@ -282,7 +293,7 @@ def test_establecer_estado_diagnosticado_orden_no_existe():
     
     try:
         accion.ejecutar(dto)
-        assert False, "Debe lanzar error"
+        assert False
     except ErrorDominio as e:
         assert e.codigo == CodigoError.ORDER_NOT_FOUND
 
@@ -296,105 +307,113 @@ def test_establecer_estado_en_proceso_orden_no_existe():
     
     try:
         accion.ejecutar(dto)
-        assert False, "Debe lanzar error"
+        assert False
     except ErrorDominio as e:
         assert e.codigo == CodigoError.ORDER_NOT_FOUND
 
 
 def test_intentar_completar_excede_110():
-    repo, auditoria = crear_fixtures()
+    repo, audit = crear_fixtures()
     
-    crear = CrearOrden(repo, auditoria)
-    orden_dto = crear.ejecutar(CrearOrdenDTO(
-        cliente="Juan", vehiculo="Auto", timestamp=datetime.utcnow()
+    from app.application.dtos import CustomerIdentifierDTO, VehicleIdentifierDTO
+    crear = CrearOrden(repo, audit)
+    ord_dto = crear.ejecutar(CrearOrdenDTO(
+        customer=CustomerIdentifierDTO(nombre="Juan"),
+        vehicle=VehicleIdentifierDTO(placa="Auto"),
+        timestamp=datetime.utcnow(),
+        order_id="ORD-001"
     ))
     
-    agregar = AgregarServicio(repo, auditoria)
+    agregar = AgregarServicio(repo, audit)
     agregar.ejecutar(AgregarServicioDTO(
-        order_id=orden_dto.order_id,
+        order_id=ord_dto.order_id,
         descripcion="Servicio",
         costo_mano_obra=Decimal("10000.00"),
         componentes=[]
     ))
     
-    diagnosticar = EstablecerEstadoDiagnosticado(repo, auditoria)
-    diagnosticar.ejecutar(EstablecerEstadoDiagnosticadoDTO(order_id=orden_dto.order_id))
+    diagnosticar = EstablecerEstadoDiagnosticado(repo, audit)
+    diagnosticar.ejecutar(EstablecerEstadoDiagnosticadoDTO(order_id=ord_dto.order_id))
     
-    autorizar = Autorizar(repo, auditoria)
-    autorizar.ejecutar(AutorizarDTO(order_id=orden_dto.order_id, timestamp=datetime.utcnow()))
+    autorizar = Autorizar(repo, audit)
+    autorizar.ejecutar(AutorizarDTO(order_id=ord_dto.order_id, timestamp=datetime.utcnow()))
     
-    en_proceso = EstablecerEstadoEnProceso(repo, auditoria)
-    en_proceso.ejecutar(EstablecerEstadoEnProcesoTDTO(order_id=orden_dto.order_id))
+    en_proceso = EstablecerEstadoEnProceso(repo, audit)
+    en_proceso.ejecutar(EstablecerEstadoEnProcesoTDTO(order_id=ord_dto.order_id))
     
-    orden = repo.obtener(orden_dto.order_id)
-    monto_autorizado = orden.monto_autorizado
-    limite_110 = monto_autorizado * Decimal("1.10")
-    costo_que_excede = limite_110 + Decimal("100.00")
+    ord = repo.obtener(ord_dto.order_id)
+    monto = ord.monto_autorizado
+    limite = monto * Decimal("1.10")
+    costo_excede = limite + Decimal("100.00")
     
-    orden.servicios[0].costo_real = costo_que_excede
-    orden.servicios[0].completado = True
-    repo.guardar(orden)
+    ord.servicios[0].costo_real = costo_excede
+    ord.servicios[0].completado = True
+    repo.guardar(ord)
     
-    completar = IntentarCompletar(repo, auditoria)
+    completar = IntentarCompletar(repo, audit)
     try:
-        completar.ejecutar(IntentarCompletarDTO(order_id=orden_dto.order_id))
-        assert False, "Debe lanzar error"
+        completar.ejecutar(IntentarCompletarDTO(order_id=ord_dto.order_id))
+        assert False
     except ErrorDominio as e:
         assert e.codigo == CodigoError.REQUIRES_REAUTH
         
-        orden = repo.obtener(orden_dto.order_id)
-        assert orden.estado == EstadoOrden.WAITING_FOR_APPROVAL
+        ord = repo.obtener(ord_dto.order_id)
+        assert ord.estado == EstadoOrden.WAITING_FOR_APPROVAL
 
 
 def test_intentar_completar_sin_servicios_completados():
-    repo, auditoria = crear_fixtures()
+    repo, audit = crear_fixtures()
     
-    crear = CrearOrden(repo, auditoria)
-    orden_dto = crear.ejecutar(CrearOrdenDTO(
-        cliente="Juan", vehiculo="Auto", timestamp=datetime.utcnow()
+    from app.application.dtos import CustomerIdentifierDTO, VehicleIdentifierDTO
+    crear = CrearOrden(repo, audit)
+    ord_dto = crear.ejecutar(CrearOrdenDTO(
+        customer=CustomerIdentifierDTO(nombre="Juan"),
+        vehicle=VehicleIdentifierDTO(placa="Auto"),
+        timestamp=datetime.utcnow(),
+        order_id="ORD-001"
     ))
     
-    agregar = AgregarServicio(repo, auditoria)
+    agregar = AgregarServicio(repo, audit)
     agregar.ejecutar(AgregarServicioDTO(
-        order_id=orden_dto.order_id,
+        order_id=ord_dto.order_id,
         descripcion="Servicio 1",
         costo_mano_obra=Decimal("1000.00"),
         componentes=[]
     ))
     
     agregar.ejecutar(AgregarServicioDTO(
-        order_id=orden_dto.order_id,
+        order_id=ord_dto.order_id,
         descripcion="Servicio 2",
         costo_mano_obra=Decimal("2000.00"),
         componentes=[]
     ))
     
-    diagnosticar = EstablecerEstadoDiagnosticado(repo, auditoria)
-    diagnosticar.ejecutar(EstablecerEstadoDiagnosticadoDTO(order_id=orden_dto.order_id))
+    diagnosticar = EstablecerEstadoDiagnosticado(repo, audit)
+    diagnosticar.ejecutar(EstablecerEstadoDiagnosticadoDTO(order_id=ord_dto.order_id))
     
-    autorizar = Autorizar(repo, auditoria)
-    autorizar.ejecutar(AutorizarDTO(order_id=orden_dto.order_id, timestamp=datetime.utcnow()))
+    autorizar = Autorizar(repo, audit)
+    autorizar.ejecutar(AutorizarDTO(order_id=ord_dto.order_id, timestamp=datetime.utcnow()))
     
-    en_proceso = EstablecerEstadoEnProceso(repo, auditoria)
-    en_proceso.ejecutar(EstablecerEstadoEnProcesoTDTO(order_id=orden_dto.order_id))
+    en_proceso = EstablecerEstadoEnProceso(repo, audit)
+    en_proceso.ejecutar(EstablecerEstadoEnProcesoTDTO(order_id=ord_dto.order_id))
     
-    orden = repo.obtener(orden_dto.order_id)
-    orden.servicios[0].completado = True
-    orden.servicios[1].completado = False
-    orden.servicios[0].costo_real = Decimal("1000.00")
-    orden.servicios[1].costo_real = Decimal("2000.00")
-    repo.guardar(orden)
+    ord = repo.obtener(ord_dto.order_id)
+    ord.servicios[0].completado = True
+    ord.servicios[1].completado = False
+    ord.servicios[0].costo_real = Decimal("1000.00")
+    ord.servicios[1].costo_real = Decimal("2000.00")
+    repo.guardar(ord)
     
-    completar = IntentarCompletar(repo, auditoria)
+    completar = IntentarCompletar(repo, audit)
     try:
-        completar.ejecutar(IntentarCompletarDTO(order_id=orden_dto.order_id))
-        assert False, "Debe lanzar error por servicios no completados"
+        completar.ejecutar(IntentarCompletarDTO(order_id=ord_dto.order_id))
+        assert False
     except ErrorDominio as e:
         assert e.codigo == CodigoError.INVALID_OPERATION
         assert "completar" in e.mensaje.lower()
         
-        orden = repo.obtener(orden_dto.order_id)
-        assert orden.estado == EstadoOrden.IN_PROGRESS
+        ord = repo.obtener(ord_dto.order_id)
+        assert ord.estado == EstadoOrden.IN_PROGRESS
 
 
 def test_intentar_completar_orden_no_existe():
@@ -406,7 +425,7 @@ def test_intentar_completar_orden_no_existe():
     
     try:
         accion.ejecutar(dto)
-        assert False, "Debe lanzar error"
+        assert False
     except ErrorDominio as e:
         assert e.codigo == CodigoError.ORDER_NOT_FOUND
 
@@ -442,7 +461,7 @@ def test_entregar_orden_estado_invalido():
     
     try:
         accion.ejecutar(dto)
-        assert False, "Debe lanzar error"
+        assert False
     except ErrorDominio as e:
         assert e.codigo == CodigoError.SEQUENCE_ERROR
 
@@ -474,7 +493,7 @@ def test_cancelar_orden_no_existe():
     
     try:
         accion.ejecutar(dto)
-        assert False, "Debe lanzar error"
+        assert False
     except ErrorDominio as e:
         assert e.codigo == CodigoError.ORDER_NOT_FOUND
 
@@ -575,7 +594,7 @@ def test_establecer_costo_real_indice_invalido():
     
     try:
         accion.ejecutar(dto)
-        assert False, "Debe lanzar error"
+        assert False
     except ErrorDominio as e:
         assert e.codigo == CodigoError.ORDER_NOT_FOUND
 
@@ -598,7 +617,7 @@ def test_establecer_costo_real_indice_cero():
     
     try:
         accion.ejecutar(dto)
-        assert False, "Debe lanzar error"
+        assert False
     except ErrorDominio as e:
         assert e.codigo == CodigoError.ORDER_NOT_FOUND
 
@@ -618,7 +637,7 @@ def test_establecer_costo_real_sin_servicio_id_ni_indice():
     
     try:
         accion.ejecutar(dto)
-        assert False, "Debe lanzar error"
+        assert False
     except ErrorDominio as e:
         assert e.codigo == CodigoError.ORDER_NOT_FOUND
 
@@ -636,7 +655,7 @@ def test_establecer_costo_real_orden_no_existe():
     
     try:
         accion.ejecutar(dto)
-        assert False, "Debe lanzar error"
+        assert False
     except ErrorDominio as e:
         assert e.codigo == CodigoError.ORDER_NOT_FOUND
 

@@ -5,10 +5,10 @@ from decimal import Decimal
 from datetime import datetime, timedelta
 from unittest.mock import Mock
 
-from app.domain.models.order import Orden
-from app.domain.models.service import Servicio
-from app.domain.models.event import Evento
-from app.domain.models.component import Componente
+from app.domain.entidades.order import Orden
+from app.domain.entidades.service import Servicio
+from app.domain.entidades.event import Evento
+from app.domain.entidades.component import Componente
 from app.domain.enums import EstadoOrden, CodigoError
 from app.domain.exceptions import ErrorDominio
 from app.domain.zona_horaria import ahora
@@ -20,13 +20,13 @@ class TestOrdenInitialization:
     def test_orden_initialization(self):
         """Test creación básica de Orden."""
         orden = Orden(
-            id_orden="ORD-001",
+            order_id="ORD-001",
             cliente="Juan Pérez",
             vehiculo="Toyota Corolla",
             fecha_creacion=ahora()
         )
         
-        assert orden.id_orden == "ORD-001"
+        assert orden.order_id == "ORD-001"
         assert orden.cliente == "Juan Pérez"
         assert orden.vehiculo == "Toyota Corolla"
         assert orden.estado == EstadoOrden.CREATED
@@ -40,13 +40,13 @@ class TestOrdenInitialization:
     def test_orden_has_required_attributes(self):
         """Test que Orden tiene todos los atributos requeridos."""
         orden = Orden(
-            id_orden="ORD-001",
+            order_id="ORD-001",
             cliente="Cliente",
             vehiculo="Vehículo",
             fecha_creacion=ahora()
         )
         
-        assert hasattr(orden, 'id_orden')
+        assert hasattr(orden, 'order_id')
         assert hasattr(orden, 'cliente')
         assert hasattr(orden, 'vehiculo')
         assert hasattr(orden, 'estado')
@@ -65,7 +65,7 @@ class TestOrdenValidation:
     def test_validar_no_cancelada_raises_error_when_cancelled(self):
         """Test que _validar_no_cancelada lanza error si está cancelada."""
         orden = Orden(
-            id_orden="ORD-001",
+            order_id="ORD-001",
             cliente="Cliente",
             vehiculo="Vehículo",
             fecha_creacion=ahora()
@@ -80,7 +80,7 @@ class TestOrdenValidation:
     def test_validar_no_cancelada_passes_when_not_cancelled(self):
         """Test que _validar_no_cancelada no lanza error si no está cancelada."""
         orden = Orden(
-            id_orden="ORD-001",
+            order_id="ORD-001",
             cliente="Cliente",
             vehiculo="Vehículo",
             fecha_creacion=ahora()
@@ -99,7 +99,7 @@ class TestOrdenEventHandling:
     def test_agregar_evento(self):
         """Test agregar evento a Orden."""
         orden = Orden(
-            id_orden="ORD-001",
+            order_id="ORD-001",
             cliente="Cliente",
             vehiculo="Vehículo",
             fecha_creacion=ahora()
@@ -115,7 +115,7 @@ class TestOrdenEventHandling:
     def test_agregar_evento_sin_metadatos(self):
         """Test agregar evento sin metadatos."""
         orden = Orden(
-            id_orden="ORD-001",
+            order_id="ORD-001",
             cliente="Cliente",
             vehiculo="Vehículo",
             fecha_creacion=ahora()
@@ -129,7 +129,7 @@ class TestOrdenEventHandling:
     def test_agregar_evento_con_metadatos(self):
         """Test agregar evento con metadatos."""
         orden = Orden(
-            id_orden="ORD-001",
+            order_id="ORD-001",
             cliente="Cliente",
             vehiculo="Vehículo",
             fecha_creacion=ahora()
@@ -147,7 +147,7 @@ class TestOrdenServiceManagement:
     def test_agregar_servicio_en_estado_created(self):
         """Test agregar servicio cuando orden está en CREATED."""
         orden = Orden(
-            id_orden="ORD-001",
+            order_id="ORD-001",
             cliente="Cliente",
             vehiculo="Vehículo",
             fecha_creacion=ahora()
@@ -166,7 +166,7 @@ class TestOrdenServiceManagement:
     def test_agregar_servicio_en_estado_diagnosed(self):
         """Test agregar servicio cuando orden está en DIAGNOSED."""
         orden = Orden(
-            id_orden="ORD-001",
+            order_id="ORD-001",
             cliente="Cliente",
             vehiculo="Vehículo",
             fecha_creacion=ahora()
@@ -185,7 +185,7 @@ class TestOrdenServiceManagement:
     def test_agregar_servicio_en_estado_authorized_falla(self):
         """Test agregar servicio cuando orden está AUTHORIZED falla."""
         orden = Orden(
-            id_orden="ORD-001",
+            order_id="ORD-001",
             cliente="Cliente",
             vehiculo="Vehículo",
             fecha_creacion=ahora()
@@ -205,7 +205,7 @@ class TestOrdenServiceManagement:
     def test_agregar_servicio_en_orden_cancelada_falla(self):
         """Test agregar servicio en orden cancelada falla."""
         orden = Orden(
-            id_orden="ORD-001",
+            order_id="ORD-001",
             cliente="Cliente",
             vehiculo="Vehículo",
             fecha_creacion=ahora()
@@ -229,7 +229,7 @@ class TestOrdenStateTransitions:
     def test_establecer_estado_diagnosticado_desde_created(self):
         """Test cambiar de CREATED a DIAGNOSED."""
         orden = Orden(
-            id_orden="ORD-001",
+            order_id="ORD-001",
             cliente="Cliente",
             vehiculo="Vehículo",
             fecha_creacion=ahora()
@@ -244,7 +244,7 @@ class TestOrdenStateTransitions:
     def test_establecer_estado_diagnosticado_no_desde_created_falla(self):
         """Test cambiar a DIAGNOSED desde estado diferente a CREATED falla."""
         orden = Orden(
-            id_orden="ORD-001",
+            order_id="ORD-001",
             cliente="Cliente",
             vehiculo="Vehículo",
             fecha_creacion=ahora()
@@ -257,7 +257,7 @@ class TestOrdenStateTransitions:
     def test_establecer_estado_diagnosticado_en_cancelada_falla(self):
         """Test no se puede cambiar estado en orden cancelada."""
         orden = Orden(
-            id_orden="ORD-001",
+            order_id="ORD-001",
             cliente="Cliente",
             vehiculo="Vehículo",
             fecha_creacion=ahora()
@@ -278,7 +278,7 @@ class TestOrdenAuthorization:
         from app.domain.entidades import Servicio
         
         orden = Orden(
-            id_orden="ORD-001",
+            order_id="ORD-001",
             cliente="Cliente",
             vehiculo="Vehículo",
             fecha_creacion=ahora()
@@ -303,7 +303,7 @@ class TestOrdenAuthorization:
         from app.domain.entidades import Servicio
         
         orden = Orden(
-            id_orden="ORD-001",
+            order_id="ORD-001",
             cliente="Cliente",
             vehiculo="Vehículo",
             fecha_creacion=ahora()
@@ -334,7 +334,7 @@ class TestOrdenCostCalculation:
         from app.domain.entidades import Servicio
         
         orden = Orden(
-            id_orden="ORD-001",
+            order_id="ORD-001",
             cliente="Cliente",
             vehiculo="Vehículo",
             fecha_creacion=ahora()
@@ -361,7 +361,7 @@ class TestOrdenCostCalculation:
     def test_calcular_subtotal_sin_servicios(self):
         """Test calcular subtotal sin servicios."""
         orden = Orden(
-            id_orden="ORD-001",
+            order_id="ORD-001",
             cliente="Cliente",
             vehiculo="Vehículo",
             fecha_creacion=ahora()
@@ -377,7 +377,7 @@ class TestOrdenCostCalculation:
     def test_calcular_subtotal_con_servicios(self):
         """Test calcular subtotal con servicios."""
         orden = Orden(
-            id_orden="ORD-001",
+            order_id="ORD-001",
             cliente="Cliente",
             vehiculo="Vehículo",
             fecha_creacion=ahora()
@@ -410,7 +410,7 @@ class TestOrdenCompletion:
     def test_intentar_completar_orden_exitosamente(self):
         """Test intentar completar orden con condiciones válidas."""
         orden = Orden(
-            id_orden="ORD-001",
+            order_id="ORD-001",
             cliente="Cliente",
             vehiculo="Vehículo",
             fecha_creacion=ahora()
@@ -430,7 +430,7 @@ class TestOrdenCompletion:
     def test_entregar_orden(self):
         """Test entregar orden."""
         orden = Orden(
-            id_orden="ORD-001",
+            order_id="ORD-001",
             cliente="Cliente",
             vehiculo="Vehículo",
             fecha_creacion=ahora()
@@ -451,7 +451,7 @@ class TestOrdenCancellation:
     def test_cancelar_orden(self):
         """Test cancelar orden."""
         orden = Orden(
-            id_orden="ORD-001",
+            order_id="ORD-001",
             cliente="Cliente",
             vehiculo="Vehículo",
             fecha_creacion=ahora()
@@ -463,7 +463,7 @@ class TestOrdenCancellation:
     def test_cancelar_orden_ya_cancelada_falla(self):
         """Test cancelar orden ya cancelada falla."""
         orden = Orden(
-            id_orden="ORD-001",
+            order_id="ORD-001",
             cliente="Cliente",
             vehiculo="Vehículo",
             fecha_creacion=ahora()
@@ -483,7 +483,7 @@ class TestOrdenMiscellaneous:
     def test_orden_eventos_list_modification(self):
         """Test que eventos se pueden modificar."""
         orden = Orden(
-            id_orden="ORD-001",
+            order_id="ORD-001",
             cliente="Cliente",
             vehiculo="Vehículo",
             fecha_creacion=ahora()
@@ -498,7 +498,7 @@ class TestOrdenMiscellaneous:
     def test_orden_servicios_list_multiple_items(self):
         """Test agregar múltiples servicios."""
         orden = Orden(
-            id_orden="ORD-001",
+            order_id="ORD-001",
             cliente="Cliente",
             vehiculo="Vehículo",
             fecha_creacion=ahora()
@@ -521,7 +521,7 @@ class TestOrdenMiscellaneous:
         """Test que fecha de creación se preserva."""
         fecha = ahora()
         orden = Orden(
-            id_orden="ORD-001",
+            order_id="ORD-001",
             cliente="Cliente",
             vehiculo="Vehículo",
             fecha_creacion=fecha
@@ -532,7 +532,7 @@ class TestOrdenMiscellaneous:
     def test_orden_fecha_cancelacion_inicialmente_none(self):
         """Test que fecha_cancelacion es None al inicio."""
         orden = Orden(
-            id_orden="ORD-001",
+            order_id="ORD-001",
             cliente="Cliente",
             vehiculo="Vehículo",
             fecha_creacion=ahora()

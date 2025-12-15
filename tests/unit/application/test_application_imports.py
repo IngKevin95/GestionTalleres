@@ -23,11 +23,9 @@ class TestApplicationDTOs:
 class TestApplicationMappers:
     """Tests para mappers de aplicación."""
     
-    def test_json_a_crear_orden_dto_callable(self):
-        """Test que json_a_crear_orden_dto es callable."""
-        from app.application.mappers import json_a_crear_orden_dto
-        
-        assert callable(json_a_crear_orden_dto)
+    def test_crear_orden_dto_callable(self):
+        from app.application.mappers import crear_orden_dto
+        assert callable(crear_orden_dto)
 
 
 class TestApplicationPorts:

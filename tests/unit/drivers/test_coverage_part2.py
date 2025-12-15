@@ -153,17 +153,13 @@ class TestActionServiceMethods:
 class TestMappersFunctions:
     """Tests para funciones de mappers."""
     
-    def test_mappers_json_a_crear_orden(self):
-        """Test mapper json_a_crear_orden_dto."""
-        from app.application.mappers import json_a_crear_orden_dto
-        
-        assert callable(json_a_crear_orden_dto)
+    def test_mappers_crear_orden(self):
+        from app.application.mappers import crear_orden_dto
+        assert callable(crear_orden_dto)
     
-    def test_mappers_json_a_agregar_servicio(self):
-        """Test mapper json_a_agregar_servicio_dto."""
-        from app.application.mappers import json_a_agregar_servicio_dto
-        
-        assert callable(json_a_agregar_servicio_dto)
+    def test_mappers_agregar_servicio(self):
+        from app.application.mappers import agregar_servicio_dto
+        assert callable(agregar_servicio_dto)
 
 
 class TestDTOsCreation:
