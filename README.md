@@ -1,6 +1,6 @@
 # GestionTalleres
 
-Sistema para gestionar el ciclo de vida completo de órdenes de reparación en talleres automotrices. Permite crear órdenes, añadir servicios y componentes, controlar estados a lo largo del proceso, registrar costos estimados y reales, manejar autorizaciones con control de límites, y mantener trazabilidad completa mediante eventos de auditoría.
+Sistema completo para gestionar el ciclo de vida de órdenes de reparación en talleres automotrices. Cubre desde la creación de órdenes hasta la entrega, pasando por diagnóstico, autorización, reparación y control de costos. Incluye gestión de clientes y vehículos, cálculo automático de IVA, validación de límites de autorización, y trazabilidad completa mediante eventos de auditoría.
 
 ## Arquitectura
 
@@ -331,19 +331,24 @@ tests/
 
 ## Endpoints Principales
 
+### Endpoints de Órdenes
+
 El endpoint principal es `POST /commands` que procesa un batch de comandos en un solo request. Es útil para ejecutar secuencias de operaciones de una vez.
 
-- `POST /commands` - Procesa batch de comandos (el más usado)
-- `GET /orders/{order_id}` - Obtiene una orden completa con todos sus servicios y eventos
-- `POST /orders` - Crea una nueva orden (endpoint individual)
-- `POST /orders/{order_id}/services` - Añade un servicio a una orden
-- `POST /orders/{order_id}/authorize` - Autoriza una orden (calcula IVA automáticamente)
-- `POST /orders/{order_id}/set-real-cost` - Establece costos reales de servicios
-- `POST /orders/{order_id}/try-complete` - Intenta completar la orden (valida límite 110%)
-- `POST /orders/{order_id}/reauthorize` - Reautoriza cuando se excede el límite
-- `POST /orders/{order_id}/deliver` - Marca la orden como entregada
-- `POST /orders/{order_id}/cancel` - Cancela una orden
-- `GET /health` - Health check de API y base de datos
+- `GET /` - Información básica de la API (versión, mensaje de bienvenida)
+- `GET /health` - Health check de API y base de datos (incluye estado de tablas)
+- `POST /commands` - Procesa batch de comandos (el más usado para operaciones múltiples)
+- `GET /orders/{order_id}` - Obtiene una orden completa con todos sus servicios, componentes y eventos
+- `POST /orders` - Crea una nueva orden (endpoint individual, con find-or-create de cliente/vehículo)
+- `PATCH /orders/{order_id}` - Actualiza datos básicos de una orden (cliente, vehículo)
+- `POST /orders/{order_id}/set_state` - Cambia el estado de una orden (DIAGNOSED, IN_PROGRESS)
+- `POST /orders/{order_id}/services` - Añade un servicio a una orden (con componentes opcionales)
+- `POST /orders/{order_id}/authorize` - Autoriza una orden (calcula IVA automáticamente al 16%)
+- `POST /orders/{order_id}/set_real_cost` - Establece costos reales de servicios y componentes
+- `POST /orders/{order_id}/try_complete` - Intenta completar la orden (valida límite 110%, puede requerir reautorización)
+- `POST /orders/{order_id}/reauthorize` - Reautoriza cuando se excede el límite (incrementa versión de autorización)
+- `POST /orders/{order_id}/deliver` - Marca la orden como entregada (solo si está COMPLETED)
+- `POST /orders/{order_id}/cancel` - Cancela una orden (requiere motivo, bloquea todas las operaciones)
 
 ### Endpoints de Clientes y Vehículos
 
@@ -439,7 +444,22 @@ Si intentas crear un cliente o vehículo con un valor duplicado, el sistema reto
 
 ### Formato de Comandos
 
-El endpoint `/commands` acepta un array de comandos. Cada comando tiene una operación (`op`) y datos (`data`). Ejemplo de flujo completo:
+El endpoint `/commands` acepta un array de comandos (máximo 100 por request). Cada comando tiene una operación (`op`) y datos (`data`). Los comandos se procesan secuencialmente y si uno falla, se registra el error pero se continúa con el siguiente.
+
+**Comandos disponibles:**
+
+- `CREATE_ORDER` - Crea una nueva orden en estado CREATED
+- `ADD_SERVICE` - Agrega un servicio a una orden (solo en CREATED o DIAGNOSED)
+- `SET_STATE_DIAGNOSED` - Cambia el estado a DIAGNOSED
+- `SET_STATE_IN_PROGRESS` - Cambia el estado a IN_PROGRESS (requiere autorización previa)
+- `AUTHORIZE` - Calcula monto autorizado con IVA y cambia a AUTHORIZED
+- `SET_REAL_COST` - Establece costos reales de servicios/componentes
+- `TRY_COMPLETE` - Valida límite 110% y completa o requiere reautorización
+- `REAUTHORIZE` - Nueva autorización desde WAITING_FOR_APPROVAL
+- `DELIVER` - Cambia estado a DELIVERED (requiere COMPLETED)
+- `CANCEL` - Cancela la orden con motivo
+
+Ejemplo de flujo completo:
 
 ```json
 {
@@ -447,17 +467,18 @@ El endpoint `/commands` acepta un array de comandos. Cada comando tiene una oper
     {
       "op": "CREATE_ORDER",
       "data": {
+        "order_id": "ORD-001",
         "customer": "Juan Pérez",
-        "vehicle": "Toyota Corolla 2020"
+        "vehicle": "ABC-123"
       },
       "ts": "2024-01-15T10:00:00-05:00"
     },
     {
       "op": "ADD_SERVICE",
       "data": {
-        "order_id": "ORD-ABC12345",
+        "order_id": "ORD-001",
         "description": "Cambio de aceite",
-        "labor_cost": 50000,
+        "labor_estimated_cost": 50000,
         "components": [
           {
             "description": "Aceite 5W-30",
@@ -467,48 +488,143 @@ El endpoint `/commands` acepta un array de comandos. Cada comando tiene una oper
       }
     },
     {
+      "op": "SET_STATE_DIAGNOSED",
+      "data": {
+        "order_id": "ORD-001"
+      }
+    },
+    {
       "op": "AUTHORIZE",
       "data": {
-        "order_id": "ORD-ABC12345"
+        "order_id": "ORD-001"
+      }
+    },
+    {
+      "op": "SET_STATE_IN_PROGRESS",
+      "data": {
+        "order_id": "ORD-001"
+      }
+    },
+    {
+      "op": "SET_REAL_COST",
+      "data": {
+        "order_id": "ORD-001",
+        "service_index": 1,
+        "real_cost": 135000,
+        "components_real": {
+          "1": 85000
+        },
+        "completed": true
+      }
+    },
+    {
+      "op": "TRY_COMPLETE",
+      "data": {
+        "order_id": "ORD-001"
+      }
+    },
+    {
+      "op": "DELIVER",
+      "data": {
+        "order_id": "ORD-001"
       }
     }
   ]
 }
 ```
 
-El sistema procesa los comandos secuencialmente y retorna un JSON con las órdenes modificadas, los eventos generados, y cualquier error que haya ocurrido. Si un comando falla, se registra el error pero se sigue procesando el siguiente.
+El sistema retorna un JSON con:
+- `orders`: Array de órdenes modificadas (con todos sus datos actualizados)
+- `events`: Array de eventos generados durante el procesamiento
+- `errors`: Array de errores si algún comando falló (el procesamiento continúa)
 
 ## Reglas de Negocio
 
-Las reglas principales que implementa el sistema:
+### Máquina de Estados
 
-- **IVA**: 16% sobre el subtotal estimado. El monto autorizado se calcula como `subtotal * 1.16`, redondeado con half-even.
-- **Límite 110%**: Cuando intentas completar una orden, si el `total_real` excede el 110% del `monto_autorizado`, la orden pasa a estado `WAITING_FOR_APPROVAL` y necesitas reautorizar.
-- **Redondeo**: Usa half-even (banker's rounding) a 2 decimales en todos los cálculos monetarios. No uses float para dinero, siempre Decimal.
-- **Máquina de estados**: Las transiciones están bien definidas. No puedes saltarte estados (ej: no puedes autorizar sin haber diagnosticado primero).
-- **Clientes y Vehículos**: Se crean automáticamente si no existen mediante lógica find-or-create. Puedes identificarlos por múltiples criterios (ID, identificación, nombre para clientes; ID, placa para vehículos).
-- **Unicidad**: Los campos `identificacion`, `nombre` (clientes) y `placa` (vehículos) son únicos en la base de datos.
-- **Transferencia de Propiedad**: Los vehículos pueden transferirse entre clientes actualizando el campo `customer` en el endpoint de actualización.
-- **Versiones de autorización**: Cada reautorización incrementa la versión, así puedes rastrear cuántas veces se reautorizó una orden.
+Las órdenes siguen un flujo de estados estricto:
+
+```
+CREATED → DIAGNOSED → AUTHORIZED → IN_PROGRESS → COMPLETED → DELIVERED
+                                    ↓
+                            WAITING_FOR_APPROVAL → AUTHORIZED → ...
+    
+Cualquier estado → CANCELLED (bloquea todas las operaciones)
+```
+
+**Estados disponibles:**
+- `CREATED`: Orden recién creada, puede agregar servicios
+- `DIAGNOSED`: Diagnóstico completado, lista para autorizar
+- `AUTHORIZED`: Autorizada con monto (incluye IVA), puede iniciar reparación
+- `IN_PROGRESS`: En proceso de reparación, puede establecer costos reales
+- `COMPLETED`: Completada dentro del límite 110%, lista para entregar
+- `WAITING_FOR_APPROVAL`: Excedió el 110%, requiere reautorización
+- `DELIVERED`: Entregada al cliente
+- `CANCELLED`: Cancelada (bloquea todas las operaciones)
+
+**Restricciones de transición:**
+- No puedes autorizar sin haber diagnosticado primero
+- No puedes pasar a IN_PROGRESS sin autorización previa
+- No puedes completar sin estar en IN_PROGRESS
+- No puedes reautorizar sin estar en WAITING_FOR_APPROVAL
+- No puedes entregar sin estar en COMPLETED
+- Una vez cancelada, la orden no puede cambiar de estado
+
+### Cálculos Monetarios
+
+- **IVA**: 16% sobre el subtotal estimado. El monto autorizado se calcula como `subtotal * 1.16`, redondeado con half-even (banker's rounding) a 2 decimales.
+- **Límite 110%**: Al intentar completar, si el `total_real` excede el 110% del `monto_autorizado`, la orden pasa a `WAITING_FOR_APPROVAL` y necesitas reautorizar.
+- **Redondeo**: Todos los cálculos monetarios usan `Decimal` (nunca `float`) y se redondean con half-even a 2 decimales.
+- **Versiones de autorización**: Cada reautorización incrementa `authorization_version`, permitiendo rastrear cuántas veces se reautorizó una orden.
+
+### Gestión de Clientes y Vehículos
+
+- **Find-or-Create**: Al crear órdenes, clientes o vehículos, el sistema busca si ya existen según criterios de identificación. Si existen, los reutiliza; si no, los crea automáticamente.
+- **Identificación flexible**: 
+  - Clientes: por `id_cliente`, `identificacion` o `nombre` (todos únicos)
+  - Vehículos: por `id_vehiculo` o `placa` (placa es única)
+- **Transferencia de propiedad**: Los vehículos pueden transferirse entre clientes actualizando el campo `customer` en el endpoint de actualización.
+- **Unicidad**: Los campos `identificacion`, `nombre` (clientes) y `placa` (vehículos) son únicos en la base de datos. Intentar crear duplicados retorna error.
+
+### Validaciones Adicionales
+
+- No se pueden agregar servicios después de autorizar (excepto establecer costos reales)
+- Los costos estimados y reales deben ser positivos
+- Los servicios pueden marcarse como completados individualmente
+- Los componentes pueden tener costos reales diferentes a los estimados
 
 ## Características Técnicas
 
-Algunas cosas que están implementadas:
+### Arquitectura y Diseño
 
-- **Dependency Injection**: Usa `Depends()` de FastAPI para inyectar repositorios y servicios. Esto hace que los tests sean más fáciles porque puedes mockear dependencias fácilmente.
-- **Exception Handlers Globales**: Hay handlers centralizados que capturan `ErrorDominio` (errores de negocio) y otros errores, y los convierten a respuestas HTTP apropiadas.
-- **Middleware de Logging**: Cada request se loguea automáticamente con métricas de tiempo de respuesta, status code, IP, etc. Los logs se guardan en `logs/` con rotación automática.
+- **Dependency Injection**: Usa `Depends()` de FastAPI para inyectar repositorios y servicios. Esto facilita el testing porque puedes mockear dependencias fácilmente.
+- **Exception Handlers Globales**: Handlers centralizados que capturan `ErrorDominio` (errores de negocio) y otros errores, convirtiéndolos a respuestas HTTP apropiadas (400, 404, 500, etc.).
+- **Validaciones**: Los path parameters se validan con regex (ej: `order_id` debe tener formato específico). Si no cumple, FastAPI devuelve 422 antes de llegar al código de negocio.
+
+### Logging y Auditoría
+
+- **Middleware de Logging**: Cada request HTTP se loguea automáticamente con métricas de tiempo de respuesta, status code, IP, método, path, etc.
+- **Eventos de Dominio**: Cada acción importante (autorizar, completar, cancelar, etc.) genera eventos que se registran tanto en la entidad `Orden` como en el sistema de auditoría externo.
+- **Almacén de Eventos**: Implementación flexible que por defecto usa logging, pero puede cambiarse a BD o servicio externo sin tocar el dominio.
+
+### Configuración y Despliegue
+
 - **Lifespan Events**: FastAPI tiene eventos de inicio/cierre donde se configuran las conexiones a BD. Si hay un problema al iniciar, se loguea pero no crashea todo.
-- **Validaciones**: Los path parameters se validan con regex (ej: `order_id` debe ser `ORD-XXXXXXXX` con formato específico). Si no cumple, FastAPI devuelve 422 antes de llegar a tu código.
 - **CORS Configurable**: Puedes configurar qué orígenes permitir vía variable de entorno. Por defecto permite todos (`*`) pero puedes restringirlo.
+- **Health Check Mejorado**: El endpoint `/health` verifica no solo la conexión a BD, sino también qué tablas existen y cuáles faltan, facilitando el diagnóstico de problemas.
+- **Zona Horaria Configurable**: Todos los cálculos de fecha/hora usan la zona horaria configurada en `TIMEZONE` (default: `America/Bogota`).
 
 ## Notas de Implementación
 
-El código interno está en español (clases, métodos, variables), pero la API acepta y retorna JSON con keys en inglés para mantener compatibilidad con contratos existentes. El mapeo entre ambos se hace en la capa de mappers.
+### Convenciones de Nomenclatura
 
-Los campos `customer` y `vehicle` en el JSON pueden ser strings simples o objetos con criterios de identificación flexibles. El sistema busca si ese cliente/vehículo ya existe en la BD (por ID, identificación, nombre para clientes; por ID o placa para vehículos) y si no, lo crea automáticamente. Esto simplifica bastante el uso de la API y evita duplicados.
+El código interno está completamente en español (clases, métodos, variables, comentarios), pero la API acepta y retorna JSON con keys en inglés para mantener compatibilidad con contratos existentes. El mapeo entre ambos se hace en la capa de mappers (`application/mappers.py`).
 
-**Ejemplo de creación de orden con identificación flexible:**
+### Identificación Flexible de Clientes y Vehículos
+
+Los campos `customer` y `vehicle` en el JSON pueden ser strings simples o objetos con criterios de identificación flexibles. El sistema busca si ese cliente/vehículo ya existe en la BD y si no, lo crea automáticamente. Esto simplifica el uso de la API y evita duplicados.
+
+**Ejemplo con objetos (recomendado):**
 ```json
 {
   "customer": {
@@ -521,7 +637,7 @@ Los campos `customer` y `vehicle` en el JSON pueden ser strings simples o objeto
 }
 ```
 
-O también puedes usar strings simples (compatibilidad hacia atrás):
+**Ejemplo con strings simples (compatibilidad hacia atrás):**
 ```json
 {
   "customer": "Juan Pérez",
@@ -530,9 +646,18 @@ O también puedes usar strings simples (compatibilidad hacia atrás):
 }
 ```
 
-Todos los cálculos monetarios usan `Decimal` desde el inicio. No hay conversiones a float en ninguna parte del código, lo que evita los problemas típicos de precisión flotante.
+### Precisión Monetaria
 
-El sistema registra eventos de dominio en cada acción importante (autorizar, completar, cancelar, etc.). Estos eventos se guardan tanto en la entidad `Orden` como en el sistema de auditoría externo (que por defecto usa logging, pero podrías cambiar a BD o un servicio externo sin tocar el dominio).
+Todos los cálculos monetarios usan `Decimal` desde el inicio. No hay conversiones a `float` en ninguna parte del código, lo que evita los problemas típicos de precisión flotante. El redondeo se hace con half-even (banker's rounding) a 2 decimales.
+
+### Eventos y Trazabilidad
+
+El sistema registra eventos de dominio en cada acción importante. Estos eventos incluyen:
+- Tipo de evento (CREATED, AUTHORIZED, COMPLETED, CANCELLED, etc.)
+- Timestamp con zona horaria
+- Metadatos relevantes (montos, motivos, versiones de autorización)
+
+Los eventos se guardan tanto en la entidad `Orden` (lista interna) como en el sistema de auditoría externo (implementado con logging por defecto, pero intercambiable).
 
 ## Empezar Rápido
 

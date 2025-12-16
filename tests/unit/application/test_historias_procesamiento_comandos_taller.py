@@ -345,11 +345,10 @@ def test_sistema_captura_error_de_negocio_y_lo_reporta():
     }
     
     # Esperamos que el ActionService capture esto y devuelva el error
-    with pytest.raises(ErrorDominio) as excinfo:
-        service.procesar_comando(comando)
-    
-    assert excinfo.value.codigo == CodigoError.ORDER_NOT_FOUND
-    assert "no existe" in str(excinfo.value.mensaje).lower()
+    orden_dto, eventos, error = service.procesar_comando(comando)
+    assert error is not None
+    assert error.code == CodigoError.ORDER_NOT_FOUND.value
+    assert "no existe" in error.message.lower()
 
 
 def test_sistema_maneja_errores_inesperados_del_sistema():
@@ -373,9 +372,8 @@ def test_sistema_maneja_errores_inesperados_del_sistema():
         }
     }
     
-    # El ActionService captura excepciones y las convierte en ErrorDominio
-    with pytest.raises(Exception) as excinfo:
-        service.procesar_comando(comando)
-    
-    # Verificar que la excepción se propaga
-    assert "base de datos" in str(excinfo.value).lower()
+    # El ActionService captura excepciones y las convierte en ErrorDTO
+    orden_dto, eventos, error = service.procesar_comando(comando)
+    assert error is not None
+    assert error.code == "INTERNAL_ERROR"
+    assert "base de datos" in error.message.lower()

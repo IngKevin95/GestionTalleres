@@ -206,7 +206,7 @@ def test_orden_establecer_costo_real_servicio_no_existe():
         assert False, "Debería lanzar ErrorDominio"
     except ErrorDominio as e:
         assert e.codigo == CodigoError.ORDER_NOT_FOUND
-        assert "Servicio no encontrado" in str(e.mensaje)
+        assert "no encontrado" in str(e.mensaje).lower()
 
 
 def test_orden_intentar_completar_no_in_progress():

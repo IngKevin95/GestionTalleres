@@ -926,7 +926,7 @@ POST {{baseUrl}}/vehicles
 Content-Type: application/json
 
 {
-  "placa": "XYZ-999",
+  "placa": "XYZ-989",
   "marca": "Toyota",
   "modelo": "Corolla",
   "anio": 2023,

@@ -19,10 +19,17 @@ class Servicio:
         return subtotal
 
     def calcular_costo_real(self) -> Decimal:
+        """
+        Calcula el costo real del servicio.
+        
+        Si hay un costo_real establecido explícitamente, lo retorna.
+        Si no, calcula sumando:
+        - Costo de mano de obra estimado
+        - Costos reales de componentes (si existen) o costos estimados (si no)
+        """
         if self.costo_real is not None:
             return self.costo_real
         
-        # Si no hay costo real, calcular sumando componentes
         total = self.costo_mano_obra_estimado
         for componente in self.componentes:
             if componente.costo_real is not None:

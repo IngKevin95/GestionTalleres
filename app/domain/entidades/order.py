@@ -48,7 +48,11 @@ class Orden:
             raise ErrorDominio(CodigoError.ORDER_CANCELLED, "La orden está cancelada")
         
         if self.estado != EstadoOrden.CREATED:
-            raise ErrorDominio(CodigoError.SEQUENCE_ERROR, "Estado debe ser CREATED")
+            raise ErrorDominio(
+                CodigoError.SEQUENCE_ERROR,
+                f"Estado debe ser CREATED, actual: {self.estado.value}",
+                contexto={"estado_actual": self.estado.value, "estado_requerido": EstadoOrden.CREATED.value}
+            )
         
         self.estado = EstadoOrden.DIAGNOSED
         self._agregar_evento("DIAGNOSED")
@@ -58,7 +62,11 @@ class Orden:
             raise ErrorDominio(CodigoError.ORDER_CANCELLED, "La orden está cancelada")
         
         if self.estado != EstadoOrden.DIAGNOSED:
-            raise ErrorDominio(CodigoError.SEQUENCE_ERROR, "Requiere estado DIAGNOSED")
+            raise ErrorDominio(
+                CodigoError.SEQUENCE_ERROR,
+                f"Requiere estado DIAGNOSED, actual: {self.estado.value}",
+                contexto={"estado_actual": self.estado.value, "estado_requerido": EstadoOrden.DIAGNOSED.value}
+            )
         
         if not self.servicios:
             raise ErrorDominio(CodigoError.NO_SERVICES, "No hay servicios")
@@ -74,7 +82,11 @@ class Orden:
             raise ErrorDominio(CodigoError.ORDER_CANCELLED, "La orden está cancelada")
         
         if self.estado != EstadoOrden.AUTHORIZED:
-            raise ErrorDominio(CodigoError.SEQUENCE_ERROR, "Requiere estado AUTHORIZED")
+            raise ErrorDominio(
+                CodigoError.SEQUENCE_ERROR,
+                f"Requiere estado AUTHORIZED, actual: {self.estado.value}",
+                contexto={"estado_actual": self.estado.value, "estado_requerido": EstadoOrden.AUTHORIZED.value}
+            )
         
         self.estado = EstadoOrden.IN_PROGRESS
         self._agregar_evento("IN_PROGRESS")
@@ -90,7 +102,11 @@ class Orden:
                 break
         
         if servicio is None:
-            raise ErrorDominio(CodigoError.ORDER_NOT_FOUND, "Servicio no encontrado")
+            raise ErrorDominio(
+                CodigoError.ORDER_NOT_FOUND,
+                f"Servicio con id {servicio_id} no encontrado en la orden",
+                contexto={"order_id": self.order_id, "servicio_id": servicio_id, "servicios_disponibles": len(self.servicios)}
+            )
         
         if componentes_reales:
             servicio.costo_real = costo_real
@@ -114,17 +130,29 @@ class Orden:
             raise ErrorDominio(CodigoError.ORDER_CANCELLED, "La orden está cancelada")
         
         if self.estado != EstadoOrden.IN_PROGRESS:
-            raise ErrorDominio(CodigoError.SEQUENCE_ERROR, "Debe estar en IN_PROGRESS")
+            raise ErrorDominio(
+                CodigoError.SEQUENCE_ERROR,
+                f"Debe estar en IN_PROGRESS, actual: {self.estado.value}",
+                contexto={"estado_actual": self.estado.value, "estado_requerido": EstadoOrden.IN_PROGRESS.value}
+            )
         
         if self.monto_autorizado is None:
-            raise ErrorDominio(CodigoError.SEQUENCE_ERROR, "Orden no autorizada")
+            raise ErrorDominio(
+                CodigoError.SEQUENCE_ERROR,
+                "Orden no autorizada. Se requiere autorización previa",
+                contexto={"order_id": self.order_id, "estado": self.estado.value}
+            )
         
         if not self.servicios:
             raise ErrorDominio(CodigoError.NO_SERVICES, "No hay servicios")
         
         for s in self.servicios:
             if not s.completado:
-                raise ErrorDominio(CodigoError.INVALID_OPERATION, "Faltan servicios por completar")
+                raise ErrorDominio(
+                    CodigoError.INVALID_OPERATION,
+                    f"Faltan servicios por completar. Servicio '{s.descripcion}' (id: {s.id_servicio}) no está completado",
+                    contexto={"order_id": self.order_id, "servicio_incompleto": s.descripcion, "servicio_id": s.id_servicio}
+                )
         
         self._recalcular_total_real()
         limite = redondear_mitad_par(self.monto_autorizado * Decimal('1.10'), 2)
@@ -137,7 +165,13 @@ class Orden:
             })
             raise ErrorDominio(
                 CodigoError.REQUIRES_REAUTH,
-                f"El costo real ({self.total_real:.2f}) excede el 110% del monto autorizado ({self.monto_autorizado:.2f}). Límite: {limite:.2f}."
+                f"El costo real ({self.total_real:.2f}) excede el 110% del monto autorizado ({self.monto_autorizado:.2f}). Límite: {limite:.2f}.",
+                contexto={
+                    "total_real": str(self.total_real),
+                    "monto_autorizado": str(self.monto_autorizado),
+                    "limite_110": str(limite),
+                    "exceso": str(self.total_real - limite)
+                }
             )
         
         self.estado = EstadoOrden.COMPLETED
@@ -148,12 +182,21 @@ class Orden:
             raise ErrorDominio(CodigoError.ORDER_CANCELLED, "La orden está cancelada")
         
         if self.estado != EstadoOrden.WAITING_FOR_APPROVAL:
-            raise ErrorDominio(CodigoError.SEQUENCE_ERROR, "Requiere WAITING_FOR_APPROVAL")
+            raise ErrorDominio(
+                CodigoError.SEQUENCE_ERROR,
+                f"Requiere WAITING_FOR_APPROVAL, actual: {self.estado.value}",
+                contexto={"estado_actual": self.estado.value, "estado_requerido": EstadoOrden.WAITING_FOR_APPROVAL.value}
+            )
         
         if nuevo_monto < self.total_real:
             raise ErrorDominio(
                 CodigoError.INVALID_AMOUNT,
-                f"Monto {nuevo_monto} menor que total real {self.total_real}"
+                f"Monto autorizado ({nuevo_monto:.2f}) menor que total real ({self.total_real:.2f})",
+                contexto={
+                    "nuevo_monto": str(nuevo_monto),
+                    "total_real": str(self.total_real),
+                    "diferencia": str(self.total_real - nuevo_monto)
+                }
             )
         
         self.version_autorizacion += 1
@@ -167,7 +210,11 @@ class Orden:
             raise ErrorDominio(CodigoError.ORDER_CANCELLED, "La orden está cancelada")
         
         if self.estado != EstadoOrden.COMPLETED:
-            raise ErrorDominio(CodigoError.SEQUENCE_ERROR, "Debe estar COMPLETED")
+            raise ErrorDominio(
+                CodigoError.SEQUENCE_ERROR,
+                f"Debe estar COMPLETED, actual: {self.estado.value}",
+                contexto={"estado_actual": self.estado.value, "estado_requerido": EstadoOrden.COMPLETED.value}
+            )
         
         self.estado = EstadoOrden.DELIVERED
         self._agregar_evento("DELIVERED")
