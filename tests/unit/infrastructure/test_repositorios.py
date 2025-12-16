@@ -1,3 +1,9 @@
+"""
+Tests de los repositorios de infraestructura (capa de persistencia).
+
+Verifica que los repositorios interactúen correctamente con la base de datos
+para gestionar órdenes, clientes, vehículos, servicios y eventos del taller.
+"""
 from decimal import Decimal
 from datetime import datetime
 from unittest.mock import Mock, MagicMock
@@ -13,48 +19,123 @@ from app.domain.enums import EstadoOrden, CodigoError
 from app.domain.exceptions import ErrorDominio
 
 
-def test_repositorio_orden_obtener_no_existe():
+# ==================== FIXTURES COMPARTIDOS ====================
+
+@pytest.fixture
+def sesion_base_datos():
+    """Crea una sesión mock de SQLAlchemy para tests"""
+    return Mock(spec=Session)
+
+
+@pytest.fixture
+def cliente_habitual():
+    """Cliente frecuente del taller con datos realistas"""
+    cliente_mock = Mock()
+    cliente_mock.id_cliente = "CLI-2024-0156"
+    cliente_mock.nombre = "María González Pérez"
+    cliente_mock.telefono = "300-555-0123"
+    cliente_mock.email = "maria.gonzalez@email.com"
+    return cliente_mock
+
+
+@pytest.fixture
+def vehiculo_ejemplo():
+    """Vehículo típico del taller"""
+    vehiculo_mock = Mock()
+    vehiculo_mock.id_vehiculo = "VEH-2024-0089"
+    vehiculo_mock.descripcion = "Toyota Corolla 2018 - ABC-123"
+    vehiculo_mock.placa = "ABC-123"
+    vehiculo_mock.marca = "Toyota"
+    vehiculo_mock.modelo = "Corolla"
+    vehiculo_mock.anio = 2018
+    return vehiculo_mock
+
+
+# ==================== TESTS REPOSITORIO ORDEN ====================
+
+def test_buscar_orden_inexistente_retorna_none():
+    """
+    DADO que busco una orden que no existe en la BD
+    CUANDO consulto por su ID
+    ENTONCES el repositorio debe retornar None
+    
+    Caso real: Recepcionista busca orden ORD-999 que nunca se creó
+    """
+    # Given - Sesión mock sin orden
     sesion = Mock(spec=Session)
     query_mock = Mock()
     query_mock.filter.return_value.first.return_value = None
     sesion.query.return_value = query_mock
     
+    # When - Buscar orden inexistente
     repo = RepositorioOrden(sesion)
     orden = repo.obtener("ORD-999")
     
-    assert orden is None
+    # Then - Retorna None
+    assert orden is None, \
+        "Orden inexistente debe retornar None"
 
-def test_repositorio_cliente_buscar_o_crear_existente():
+
+# ==================== TESTS REPOSITORIO CLIENTE ====================
+
+def test_cliente_existente_se_recupera_sin_crear_duplicado():
+    """
+    DADO que un cliente ya existe en la BD
+    CUANDO busco/creo por su nombre
+    ENTONCES debe retornar el cliente existente sin crear duplicado
+    
+    Caso real: María González ya es cliente del taller hace 2 años
+    """
+    # Given - Cliente existente en BD
     sesion = Mock(spec=Session)
     cliente_modelo = Mock()
-    cliente_modelo.id_cliente = "CLI-001"
-    cliente_modelo.nombre = "Juan"
+    cliente_modelo.id_cliente = "CLI-2024-0156"
+    cliente_modelo.nombre = "María González Pérez"
     
     query_mock = Mock()
     query_mock.filter.return_value.first.return_value = cliente_modelo
     sesion.query.return_value = query_mock
     
+    # When - Buscar o crear cliente existente
     repo = RepositorioClienteSQL(sesion)
-    cliente = repo.buscar_o_crear_por_nombre("Juan")
+    cliente = repo.buscar_o_crear_por_nombre("María González Pérez")
     
-    assert cliente.id_cliente == "CLI-001"
-    sesion.add.assert_not_called()
+    # Then - Retorna existente, no crea duplicado
+    assert cliente.id_cliente == "CLI-2024-0156", \
+        "Debe retornar cliente existente"
+    sesion.add.assert_not_called(), \
+        "No debe crear duplicado"
 
 
-def test_repositorio_cliente_buscar_o_crear_nuevo():
+def test_cliente_nuevo_se_crea_en_base_datos():
+    """
+    DADO que un cliente no existe en la BD
+    CUANDO busco/creo por su nombre
+    ENTONCES debe crear el nuevo cliente y persistirlo
+    
+    Caso real: Carlos Rodríguez visita el taller por primera vez
+    """
+    # Given - BD sin este cliente
     sesion = Mock(spec=Session)
     
     query_mock = Mock()
     query_mock.filter.return_value.first.return_value = None
     sesion.query.return_value = query_mock
     
+    # When - Buscar o crear cliente nuevo
     repo = RepositorioClienteSQL(sesion)
-    cliente = repo.buscar_o_crear_por_nombre("Juan")
+    cliente = repo.buscar_o_crear_por_nombre("Carlos Rodríguez Méndez")
     
-    assert cliente is not None
-    sesion.add.assert_called_once()
-    sesion.flush.assert_called_once()
+    # Then - Crea y persiste cliente
+    assert cliente is not None, \
+        "Debe crear nuevo cliente"
+    sesion.add.assert_called_once(), \
+        "Debe agregar cliente a sesión"
+    sesion.flush.assert_called_once(), \
+        "Debe hacer flush para generar ID"
 
+
+# ==================== TESTS REPOSITORIO VEHÍCULO ====================
 
 # Estos tests usan buscar_o_crear_por_descripcion que no existe en el repositorio actual
 # El método actual usa buscar_por_placa o similar

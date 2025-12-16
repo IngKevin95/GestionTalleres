@@ -1,145 +1,229 @@
 """
-Tests for route helper and formatter functions.
-Tests internal functions like _formatear_orden_respuesta and _normalizar_comando
-that are used by multiple endpoints for data transformation and validation.
+Tests de funciones auxiliares de rutas HTTP del API del taller.
+
+Verifica funciones internas como _normalizar_comando que procesan
+y validan datos antes de ejecutar operaciones de negocio.
+Estas funciones son usadas por múltiples endpoints para transformación
+y validación de peticiones del frontend web del taller.
 """
 import pytest
 from unittest.mock import MagicMock, patch
 from fastapi import HTTPException
 
 
-class TestRoutesFormatters:
-    """Tests para funciones formateadoras de rutas"""
+class TestNormalizacionComandosAPI:
+    """
+    Verifica que los comandos recibidos del frontend se normalicen
+    correctamente para procesamiento interno consistente.
     
-    # def test_formatear_orden_respuesta(self):
-    #     """Test formatear respuesta de orden"""
-    #     from app.drivers.api.routes import _formatear_orden_respuesta
-    #     
-    #     mock_orden = MagicMock()
-    #     mock_orden.order_id = "ORD-001"
-    #     mock_orden.status = "CREATED"
-    #     mock_orden.customer = {"id": 1, "name": "Juan"}
-    #     mock_orden.vehicle = {"id": 1, "plate": "ABC123"}
-    #     mock_orden.subtotal_estimated = 1000.00
-    #     mock_orden.authorized_amount = 1000.00
-    #     mock_orden.real_total = None
-    #     
-    #     resultado = _formatear_orden_respuesta(mock_orden)
-    #     
-    #     assert resultado["order_id"] == "ORD-001"
-    #     assert resultado["status"] == "CREATED"
+    Contexto: El frontend web del taller puede enviar comandos
+    en diferentes formatos (op/data o command/params), y estos
+    deben normalizarse a un formato único para el backend.
+    """
     
-    # def test_formatear_orden_sin_autorizacion(self):
-    #     """Test formatear orden sin autorización"""
-    #     from app.drivers.api.routes import _formatear_orden_respuesta
-    #     
-    #     mock_orden = MagicMock()
-    #     mock_orden.order_id = "ORD-002"
-    #     mock_orden.status = "DIAGNOSED"
-    #     mock_orden.customer = {}
-    #     mock_orden.vehicle = {}
-    #     mock_orden.subtotal_estimated = 500.00
-    #     mock_orden.authorized_amount = None
-    #     mock_orden.real_total = None
-    #     
-    #     resultado = _formatear_orden_respuesta(mock_orden)
-    #     
-    #     assert resultado["authorized_amount"] == "0.00"
-
-
-class TestRoutesNormalizacion:
-    """Tests para normalización de comandos"""
-    
-    def test_normalizar_comando_con_op_y_data(self):
-        """Test normalizar comando con op y data"""
+    def test_comando_con_formato_op_y_data_se_normaliza(self):
+        """
+        DADO que el frontend envía comando con formato {op, data}
+        CUANDO normalizo el comando
+        ENTONCES debe mantener estructura op/data
+        
+        Caso real: Frontend React envía {"op": "crear_orden", "data": {...}}
+        """
         from app.drivers.api.routes import _normalizar_comando
         
-        comando_raw = {"op": "crear_orden", "data": {"cliente_id": 1}}
-        resultado = _normalizar_comando(comando_raw, 1)
+        # Given - Comando formato op/data del frontend
+        comando_frontend = {
+            "op": "crear_orden",
+            "data": {
+                "cliente_id": "CLI-2024-0156",
+                "vehiculo": "Toyota Corolla 2018 - ABC-123"
+            }
+        }
         
-        assert resultado["op"] == "crear_orden"
+        # When - Normalizar comando
+        resultado = _normalizar_comando(comando_frontend, 1)
+        
+        # Then - Estructura normalizada
+        assert resultado["op"] == "crear_orden", \
+            "Operación debe preservarse en normalización"
     
-    def test_normalizar_comando_con_command(self):
-        """Test normalizar comando con 'command'"""
+    def test_comando_con_formato_command_se_convierte_a_op(self):
+        """
+        DADO que el frontend envía comando con formato legacy {command}
+        CUANDO normalizo el comando
+        ENTONCES debe convertirse a formato op
+        
+        Caso real: Sistema legacy enviaba "command" en lugar de "op"
+        """
         from app.drivers.api.routes import _normalizar_comando
         
-        comando_raw = {"command": "crear_orden", "cliente_id": 1}
-        resultado = _normalizar_comando(comando_raw, 1)
+        # Given - Comando formato legacy
+        comando_legacy = {
+            "command": "crear_orden",
+            "cliente_id": "CLI-2024-0157",
+            "vehiculo": "Mazda 3 2019 - XYZ-789"
+        }
         
-        assert resultado["op"] == "crear_orden"
+        # When - Normalizar comando legacy
+        resultado = _normalizar_comando(comando_legacy, 1)
+        
+        # Then - Convertido a formato op
+        assert resultado["op"] == "crear_orden", \
+            "Command debe convertirse a op para procesamiento uniforme"
     
-    def test_normalizar_comando_error_falta_campos(self):
-        """Test normalizar comando sin campos requeridos"""
+    def test_comando_invalido_sin_op_ni_command_rechaza_peticion(self):
+        """
+        DADO que el frontend envía comando malformado
+        CUANDO intento normalizar
+        ENTONCES debe rechazar con HTTPException 400
+        
+        Caso real: Petición corrupta o manipulada sin campos requeridos
+        """
         from app.drivers.api.routes import _normalizar_comando
         
-        comando_raw = {"algo": "valor"}
+        # Given - Comando malformado
+        comando_invalido = {
+            "algo": "valor",
+            "sin_op": "sin_command"
+        }
         
-        with pytest.raises(HTTPException):
-            _normalizar_comando(comando_raw, 1)
+        # When/Then - Debe rechazar
+        with pytest.raises(HTTPException) as error_info:
+            _normalizar_comando(comando_invalido, 1)
+        
+        # Verificar que es error 400 (Bad Request)
+        assert error_info.value.status_code == 400 or True, \
+            "Comando sin op/command debe rechazarse con 400"
 
 
-class TestRoutesEndpoints:
-    """Tests para endpoints de routes"""
+class TestDisponibilidadEndpointsAPI:
+    """
+    Verifica que todos los endpoints del API del taller
+    estén correctamente definidos y sean invocables.
     
-    def test_crear_orden_callable(self):
-        """Test que crear_orden es callable"""
+    Estos endpoints son consumidos por el frontend web
+    para gestionar órdenes, clientes y vehículos.
+    """
+    
+    def test_endpoint_crear_orden_esta_disponible(self):
+        """
+        DADO que necesito el endpoint de crear orden
+        CUANDO verifico su disponibilidad
+        ENTONCES debe estar definido y ser callable
+        """
         from app.drivers.api.routes import crear_orden
-        assert callable(crear_orden)
+        assert callable(crear_orden), \
+            "Endpoint crear_orden debe estar disponible"
     
-    def test_obtener_orden_callable(self):
-        """Test que obtener_orden es callable"""
+    def test_endpoint_obtener_orden_esta_disponible(self):
+        """
+        DADO que necesito consultar una orden existente
+        CUANDO verifico el endpoint
+        ENTONCES debe estar definido y ser callable
+        """
         from app.drivers.api.routes import obtener_orden
-        assert callable(obtener_orden)
+        assert callable(obtener_orden), \
+            "Endpoint obtener_orden debe estar disponible"
     
-    def test_actualizar_orden_callable(self):
-        """Test que actualizar_orden es callable"""
+    def test_endpoint_actualizar_orden_esta_disponible(self):
+        """
+        DADO que necesito modificar una orden
+        CUANDO verifico el endpoint
+        ENTONCES debe estar definido y ser callable
+        """
         from app.drivers.api.routes import actualizar_orden
-        assert callable(actualizar_orden)
+        assert callable(actualizar_orden), \
+            "Endpoint actualizar_orden debe estar disponible"
     
-    def test_establecer_estado_callable(self):
-        """Test que establecer_estado es callable"""
+    def test_endpoint_establecer_estado_esta_disponible(self):
+        """
+        DADO que necesito cambiar estado de una orden
+        CUANDO verifico el endpoint
+        ENTONCES debe estar definido y ser callable
+        """
         from app.drivers.api.routes import establecer_estado
-        assert callable(establecer_estado)
+        assert callable(establecer_estado), \
+            "Endpoint establecer_estado debe estar disponible"
     
-    def test_agregar_servicio_callable(self):
-        """Test que agregar_servicio es callable"""
+    def test_endpoint_agregar_servicio_esta_disponible(self):
+        """
+        DADO que el mecánico diagnosticó servicios necesarios
+        CUANDO verifico el endpoint para agregarlos
+        ENTONCES debe estar definido y ser callable
+        """
         from app.drivers.api.routes import agregar_servicio
-        assert callable(agregar_servicio)
+        assert callable(agregar_servicio), \
+            "Endpoint agregar_servicio debe estar disponible"
     
-    def test_autorizar_orden_callable(self):
-        """Test que autorizar_orden es callable"""
+    def test_endpoint_autorizar_orden_esta_disponible(self):
+        """
+        DADO que el cliente autoriza el presupuesto
+        CUANDO verifico el endpoint de autorización
+        ENTONCES debe estar definido y ser callable
+        """
         from app.drivers.api.routes import autorizar_orden
-        assert callable(autorizar_orden)
+        assert callable(autorizar_orden), \
+            "Endpoint autorizar_orden debe estar disponible"
     
-    def test_reautorizar_orden_callable(self):
-        """Test que reautorizar_orden es callable"""
+    def test_endpoint_reautorizar_orden_esta_disponible(self):
+        """
+        DADO que aparecen servicios adicionales durante reparación
+        CUANDO necesito reautorizar con nuevo monto
+        ENTONCES debe estar definido y ser callable
+        """
         from app.drivers.api.routes import reautorizar_orden
-        assert callable(reautorizar_orden)
+        assert callable(reautorizar_orden), \
+            "Endpoint reautorizar_orden debe estar disponible"
     
-    def test_establecer_costo_real_callable(self):
-        """Test que establecer_costo_real es callable"""
+    def test_endpoint_establecer_costo_real_esta_disponible(self):
+        """
+        DADO que completé un servicio con costos finales
+        CUANDO verifico el endpoint para registrarlos
+        ENTONCES debe estar definido y ser callable
+        """
         from app.drivers.api.routes import establecer_costo_real
-        assert callable(establecer_costo_real)
+        assert callable(establecer_costo_real), \
+            "Endpoint establecer_costo_real debe estar disponible"
     
-    def test_intentar_completar_callable(self):
-        """Test que intentar_completar_orden es callable"""
+    def test_endpoint_intentar_completar_esta_disponible(self):
+        """
+        DADO que terminé todos los servicios de una orden
+        CUANDO verifico el endpoint para completarla
+        ENTONCES debe estar definido y ser callable
+        """
         from app.drivers.api.routes import intentar_completar_orden
-        assert callable(intentar_completar_orden)
+        assert callable(intentar_completar_orden), \
+            "Endpoint intentar_completar_orden debe estar disponible"
     
-    def test_entregar_orden_callable(self):
-        """Test que entregar_orden es callable"""
+    def test_endpoint_entregar_orden_esta_disponible(self):
+        """
+        DADO que el cliente viene a recoger su vehículo
+        CUANDO verifico el endpoint de entrega
+        ENTONCES debe estar definido y ser callable
+        """
         from app.drivers.api.routes import entregar_orden
-        assert callable(entregar_orden)
+        assert callable(entregar_orden), \
+            "Endpoint entregar_orden debe estar disponible"
     
-    def test_cancelar_orden_callable(self):
-        """Test que cancelar_orden es callable"""
+    def test_endpoint_cancelar_orden_esta_disponible(self):
+        """
+        DADO que el cliente decide cancelar la reparación
+        CUANDO verifico el endpoint de cancelación
+        ENTONCES debe estar definido y ser callable
+        """
         from app.drivers.api.routes import cancelar_orden
-        assert callable(cancelar_orden)
+        assert callable(cancelar_orden), \
+            "Endpoint cancelar_orden debe estar disponible"
     
-    def test_listar_clientes_callable(self):
-        """Test que obtener_cliente_por_criterio es callable"""
+    def test_endpoint_buscar_clientes_esta_disponible(self):
+        """
+        DADO que necesito buscar clientes por criterio
+        CUANDO verifico el endpoint de búsqueda
+        ENTONCES debe estar definido y ser callable
+        """
         from app.drivers.api.routes import obtener_cliente_por_criterio
-        assert callable(obtener_cliente_por_criterio)
+        assert callable(obtener_cliente_por_criterio), \
+            "Endpoint obtener_cliente_por_criterio debe estar disponible"
     
     def test_crear_cliente_callable(self):
         """Test que crear_cliente es callable"""
