@@ -9,10 +9,10 @@
 GET {{baseUrl}}/health
 
 ### ============================================
-### CASO 1: FLUJO COMPLETO (DELIVERED)
+### CASO 1: FLUJO COMPLETO (JSON ENTRADA EJEMPLO)
 ### ============================================
 ### Escenario: Orden completa desde creación hasta entrega
-### Resultado esperado: Estado DELIVERED
+### Resultado esperado: Estado WAITING_FOR_APPROVAL
 
 POST {{baseUrl}}/commands
 Content-Type: application/json
@@ -34,16 +34,12 @@ Content-Type: application/json
       "data": {
         "order_id": "R001",
         "service": {
-          "description": "Cambio de aceite",
-          "labor_estimated_cost": "500.00",
+          "description": "Engine repair",
+          "labor_estimated_cost": "10000.00",
           "components": [
             {
-              "description": "Aceite sintético 5W-30",
-              "estimated_cost": "300.00"
-            },
-            {
-              "description": "Filtro de aceite",
-              "estimated_cost": "150.00"
+              "description": "Oil pump",
+              "estimated_cost": "1500.00"
             }
           ]
         }
@@ -75,21 +71,14 @@ Content-Type: application/json
       "ts": "2025-03-01T09:20:00Z",
       "data": {
         "order_id": "R001",
-        "service_index": 0,
-        "real_cost": "950.00",
+        "service_index": 1,
+        "real_cost": "15000.00",
         "completed": true
       }
     },
     {
       "op": "TRY_COMPLETE",
       "ts": "2025-03-01T09:25:00Z",
-      "data": {
-        "order_id": "R001"
-      }
-    },
-    {
-      "op": "DELIVER",
-      "ts": "2025-03-01T09:30:00Z",
       "data": {
         "order_id": "R001"
       }
@@ -745,6 +734,95 @@ Content-Type: application/json
           "0": "1100.00",
           "1": "2100.00"
         }
+      }
+    }
+  ]
+}
+
+### ============================================
+### CASO 12: FLUJO COMPLETO (DELIVERED)
+### ============================================
+### Escenario: Orden completa desde creación hasta entrega
+### Resultado esperado: Estado DELIVERED
+
+POST {{baseUrl}}/commands
+Content-Type: application/json
+
+{
+  "commands": [
+    {
+      "op": "CREATE_ORDER",
+      "ts": "2025-03-01T09:00:00Z",
+      "data": {
+        "order_id": "R012",
+        "customer": "ACME",
+        "vehicle": "ABC-123"
+      }
+    },
+    {
+      "op": "ADD_SERVICE",
+      "ts": "2025-03-01T09:05:00Z",
+      "data": {
+        "order_id": "R012",
+        "service": {
+          "description": "Cambio de aceite",
+          "labor_estimated_cost": "500.00",
+          "components": [
+            {
+              "description": "Aceite sintético 5W-30",
+              "estimated_cost": "300.00"
+            },
+            {
+              "description": "Filtro de aceite",
+              "estimated_cost": "150.00"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "op": "SET_STATE_DIAGNOSED",
+      "ts": "2025-03-01T09:10:00Z",
+      "data": {
+        "order_id": "R012"
+      }
+    },
+    {
+      "op": "AUTHORIZE",
+      "ts": "2025-03-01T09:11:00Z",
+      "data": {
+        "order_id": "R012"
+      }
+    },
+    {
+      "op": "SET_STATE_IN_PROGRESS",
+      "ts": "2025-03-01T09:15:00Z",
+      "data": {
+        "order_id": "R012"
+      }
+    },
+    {
+      "op": "SET_REAL_COST",
+      "ts": "2025-03-01T09:20:00Z",
+      "data": {
+        "order_id": "R012",
+        "service_index": 0,
+        "real_cost": "950.00",
+        "completed": true
+      }
+    },
+    {
+      "op": "TRY_COMPLETE",
+      "ts": "2025-03-01T09:25:00Z",
+      "data": {
+        "order_id": "R012"
+      }
+    },
+    {
+      "op": "DELIVER",
+      "ts": "2025-03-01T09:30:00Z",
+      "data": {
+        "order_id": "R012"
       }
     }
   ]
