@@ -866,7 +866,7 @@ GET {{baseUrl}}/customers
 GET {{baseUrl}}/customers?id_cliente=1
 
 ### Obtener cliente por identificación
-GET {{baseUrl}}/customers?identificacion=1234567890
+GET {{baseUrl}}/customers?identificacion=9876543210
 
 ### Obtener cliente por nombre
 GET {{baseUrl}}/customers?nombre=ACME
@@ -894,7 +894,7 @@ Content-Type: application/json
 }
 
 ### Actualizar cliente por identificación
-PATCH {{baseUrl}}/customers?identificacion=1234567890
+PATCH {{baseUrl}}/customers?identificacion=9876543210
 Content-Type: application/json
 
 {
@@ -906,7 +906,7 @@ Content-Type: application/json
 GET {{baseUrl}}/customers/vehicles?id_cliente=1
 
 ### Obtener vehículos de cliente por identificación
-GET {{baseUrl}}/customers/vehicles?identificacion=1234567890
+GET {{baseUrl}}/customers/vehicles?identificacion=9876543210
 
 ### ============================================
 ### GESTIÓN DE VEHÍCULOS (VEHICLES)
@@ -932,7 +932,7 @@ Content-Type: application/json
   "anio": 2023,
   "kilometraje": 5000,
   "customer": {
-    "nombre": "ACME"
+    "nombre": "Nuevo Cliente"
   }
 }
 
@@ -988,7 +988,7 @@ Content-Type: application/json
 
 {
   "customer": {
-    "nombre": "ACME"
+    "nombre": "Nuevo Cliente"
   }
 }
 
