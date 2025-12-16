@@ -8,7 +8,9 @@ from fastapi.exceptions import RequestValidationError, ResponseValidationError
 from sqlalchemy.exc import SQLAlchemyError
 import json
 
-load_dotenv()
+# Solo cargar .env si no estamos en Docker (donde las variables ya están configuradas)
+if not os.path.exists("/.dockerenv"):
+    load_dotenv()
 
 from ...infrastructure.logging_config import configurar_logging, obtener_logger
 from ...infrastructure.db import crear_engine_bd

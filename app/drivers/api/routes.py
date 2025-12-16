@@ -70,11 +70,11 @@ def obtener_vehiculo_por_criterio(vehicle: VehicleIdentifier, repo: RepositorioV
     
     return vehiculo
 
-@router.get("/")
+@router.get("/", tags=["Sistema"])
 def root():
     return {"message": "GestionTalleres API", "version": "1.0.0"}
 
-@router.get("/health", response_model=HealthResponse)
+@router.get("/health", response_model=HealthResponse, tags=["Sistema"])
 def health_check():
     estado = {
         "status": "ok",
@@ -174,7 +174,7 @@ def _procesar_comando_individual(
         raise
 
 
-@router.post("/commands", response_model=CommandsResponse)
+@router.post("/commands", response_model=CommandsResponse, tags=["Comandos"])
 def procesar_comandos(
     request_body: CommandsRequest,
     action_service: ActionService = Depends(obtener_action_service)
@@ -218,7 +218,7 @@ def procesar_comandos(
     )
 
 
-@router.post("/orders", response_model=OrdenDTO, status_code=status.HTTP_201_CREATED)
+@router.post("/orders", response_model=OrdenDTO, status_code=status.HTTP_201_CREATED, tags=["Órdenes"])
 def crear_orden(
     request: CreateOrderRequest,
     action_service: ActionService = Depends(obtener_action_service),
@@ -241,7 +241,7 @@ def crear_orden(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=msg)
 
 
-@router.get("/orders/{order_id}", response_model=OrdenDTO)
+@router.get("/orders/{order_id}", response_model=OrdenDTO, tags=["Órdenes"])
 def obtener_orden(
     order_id: str = Path(...),
     repo: RepositorioOrden = Depends(obtener_repositorio)
@@ -253,7 +253,7 @@ def obtener_orden(
     return orden_a_dto(o)
 
 
-@router.patch("/orders/{order_id}", response_model=OrdenDTO)
+@router.patch("/orders/{order_id}", response_model=OrdenDTO, tags=["Órdenes"])
 def actualizar_orden(
     order_id: str = Path(...),
     customer: Optional[str] = Body(None),
@@ -273,7 +273,7 @@ def actualizar_orden(
     return orden_a_dto(orden)
 
 
-@router.post("/orders/{order_id}/set_state", response_model=OrdenDTO)
+@router.post("/orders/{order_id}/set_state", response_model=OrdenDTO, tags=["Órdenes"])
 def establecer_estado(
     order_id: str = Path(...),
     request: SetStateRequest = ...,
@@ -306,7 +306,7 @@ def establecer_estado(
 
 
 
-@router.post("/orders/{order_id}/services", response_model=OrdenDTO)
+@router.post("/orders/{order_id}/services", response_model=OrdenDTO, tags=["Órdenes"])
 def agregar_servicio(
     order_id: str = Path(...),
     request: AddServiceRequest = ...,
@@ -328,7 +328,7 @@ def agregar_servicio(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.mensaje)
 
 
-@router.post("/orders/{order_id}/authorize", response_model=OrdenDTO)
+@router.post("/orders/{order_id}/authorize", response_model=OrdenDTO, tags=["Órdenes"])
 def autorizar_orden(
     order_id: str = Path(...),
     request: AuthorizeRequest = ...,
@@ -347,7 +347,7 @@ def autorizar_orden(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.mensaje)
 
 
-@router.post("/orders/{order_id}/reauthorize", response_model=OrdenDTO)
+@router.post("/orders/{order_id}/reauthorize", response_model=OrdenDTO, tags=["Órdenes"])
 def reautorizar_orden(
     order_id: str = Path(...),
     request: ReauthorizeRequest = ...,
@@ -367,7 +367,7 @@ def reautorizar_orden(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.mensaje)
 
 
-@router.post("/orders/{order_id}/set_real_cost", response_model=OrdenDTO)
+@router.post("/orders/{order_id}/set_real_cost", response_model=OrdenDTO, tags=["Órdenes"])
 def establecer_costo_real(
     order_id: str = Path(...),
     request: SetRealCostRequest = ...,
@@ -390,7 +390,7 @@ def establecer_costo_real(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.mensaje)
 
 
-@router.post("/orders/{order_id}/try_complete", response_model=OrdenDTO)
+@router.post("/orders/{order_id}/try_complete", response_model=OrdenDTO, tags=["Órdenes"])
 def intentar_completar_orden(
     order_id: str = Path(...),
     action_service: ActionService = Depends(obtener_action_service)
@@ -405,7 +405,7 @@ def intentar_completar_orden(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.mensaje)
 
 
-@router.post("/orders/{order_id}/deliver", response_model=OrdenDTO)
+@router.post("/orders/{order_id}/deliver", response_model=OrdenDTO, tags=["Órdenes"])
 def entregar_orden(
     order_id: str = Path(...),
     action_service: ActionService = Depends(obtener_action_service)
@@ -420,7 +420,7 @@ def entregar_orden(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.mensaje)
 
 
-@router.post("/orders/{order_id}/cancel", response_model=OrdenDTO)
+@router.post("/orders/{order_id}/cancel", response_model=OrdenDTO, tags=["Órdenes"])
 def cancelar_orden(
     order_id: str = Path(...),
     request: CancelRequest = ...,
@@ -439,7 +439,7 @@ def cancelar_orden(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.mensaje)
 
 
-@router.get("/customers", response_model=ListClientesResponse)
+@router.get("/customers", response_model=ListClientesResponse, tags=["Clientes"])
 def listar_clientes(
     repo_cliente: RepositorioClienteSQL = Depends(obtener_repositorio_cliente)
 ):
@@ -458,7 +458,7 @@ def listar_clientes(
     return ListClientesResponse(clientes=clientes_response)
 
 
-@router.get("/customers", response_model=ClienteResponse)
+@router.get("/customers", response_model=ClienteResponse, tags=["Clientes"])
 def obtener_cliente(
     id_cliente: Optional[int] = Query(None),
     identificacion: Optional[str] = Query(None),
@@ -477,7 +477,7 @@ def obtener_cliente(
     )
 
 
-@router.post("/customers", response_model=ClienteResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/customers", response_model=ClienteResponse, status_code=status.HTTP_201_CREATED, tags=["Clientes"])
 def crear_cliente(
     request: CreateClienteRequest,
     repo_cliente: RepositorioClienteSQL = Depends(obtener_repositorio_cliente)
@@ -528,7 +528,7 @@ def crear_cliente(
     )
 
 
-@router.patch("/customers", response_model=ClienteResponse)
+@router.patch("/customers", response_model=ClienteResponse, tags=["Clientes"])
 def actualizar_cliente(
     id_cliente: Optional[int] = Query(None),
     identificacion: Optional[str] = Query(None),
@@ -560,7 +560,7 @@ def actualizar_cliente(
     )
 
 
-@router.get("/customers/vehicles", response_model=ListVehiculosResponse)
+@router.get("/customers/vehicles", response_model=ListVehiculosResponse, tags=["Clientes"])
 def obtener_vehiculos_cliente(
     id_cliente: Optional[int] = Query(None),
     identificacion: Optional[str] = Query(None),
@@ -588,7 +588,7 @@ def obtener_vehiculos_cliente(
     return ListVehiculosResponse(vehiculos=vehiculos_response)
 
 
-@router.get("/vehicles", response_model=ListVehiculosResponse)
+@router.get("/vehicles", response_model=ListVehiculosResponse, tags=["Vehículos"])
 def listar_vehiculos(
     repo_vehiculo: RepositorioVehiculoSQL = Depends(obtener_repositorio_vehiculo),
     repo_cliente: RepositorioClienteSQL = Depends(obtener_repositorio_cliente)
@@ -613,7 +613,7 @@ def listar_vehiculos(
     return ListVehiculosResponse(vehiculos=vehiculos_response)
 
 
-@router.get("/vehicles", response_model=VehiculoResponse)
+@router.get("/vehicles", response_model=VehiculoResponse, tags=["Vehículos"])
 def obtener_vehiculo(
     id_vehiculo: Optional[int] = Query(None),
     placa: Optional[str] = Query(None),
@@ -637,7 +637,7 @@ def obtener_vehiculo(
     )
 
 
-@router.post("/vehicles", response_model=VehiculoResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/vehicles", response_model=VehiculoResponse, status_code=status.HTTP_201_CREATED, tags=["Vehículos"])
 def crear_vehiculo(
     request: CreateVehiculoRequest,
     repo_vehiculo: RepositorioVehiculoSQL = Depends(obtener_repositorio_vehiculo),
@@ -681,7 +681,7 @@ def crear_vehiculo(
     )
 
 
-@router.patch("/vehicles", response_model=VehiculoResponse)
+@router.patch("/vehicles", response_model=VehiculoResponse, tags=["Vehículos"])
 def actualizar_vehiculo(
     id_vehiculo: Optional[int] = Query(None),
     placa: Optional[str] = Query(None),
@@ -726,7 +726,7 @@ def actualizar_vehiculo(
     )
 
 
-@router.patch("/vehicles/{vehicle_identifier}", response_model=VehiculoResponse)
+@router.patch("/vehicles/{vehicle_identifier}", response_model=VehiculoResponse, tags=["Vehículos"])
 def actualizar_vehiculo_por_path(
     vehicle_identifier: str = Path(...),
     request: UpdateVehiculoRequest = ...,
