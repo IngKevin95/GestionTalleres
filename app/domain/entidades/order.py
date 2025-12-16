@@ -11,6 +11,13 @@ from .event import Evento
 
 class Orden:
     def __init__(self, order_id: str, cliente: str, vehiculo: str, fecha_creacion: datetime, id: Optional[int] = None):
+        if not order_id or not order_id.strip():
+            raise ErrorDominio(CodigoError.INVALID_OPERATION, "order_id no puede estar vacío")
+        
+        import re
+        if not re.match(r'^[A-Z0-9\-_]+$', order_id):
+            raise ErrorDominio(CodigoError.INVALID_OPERATION, f"order_id '{order_id}' tiene formato inválido. Debe contener solo letras mayúsculas, números, guiones y guiones bajos")
+        
         self.id = id
         self.order_id = order_id
         self.cliente = cliente

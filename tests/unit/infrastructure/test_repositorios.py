@@ -191,11 +191,12 @@ def test_repositorio_evento_creation():
 
 def test_repositorio_orden_deserializar():
     modelo_mock = Mock()
-    modelo_mock.id_orden = "ORD-001"
+    modelo_mock.id = 1
+    modelo_mock.order_id = "ORD-001"
     modelo_mock.cliente = Mock()
     modelo_mock.cliente.nombre = "Juan"
     modelo_mock.vehiculo = Mock()
-    modelo_mock.vehiculo.descripcion = "Auto"
+    modelo_mock.vehiculo.placa = "ABC-123"
     modelo_mock.estado = EstadoOrden.CREATED.value
     modelo_mock.monto_autorizado = None
     modelo_mock.version_autorizacion = 0

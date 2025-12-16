@@ -1,3 +1,4 @@
+import pytest
 from decimal import Decimal
 from datetime import datetime
 from app.domain.entidades import Orden, Servicio, Componente, Cliente, Vehiculo
@@ -223,6 +224,87 @@ def test_orden_intentar_completar_no_in_progress():
 
 
 def test_orden_intentar_completar_sin_autorizacion():
+    orden = Orden("ORD-001", "Juan", "Auto", datetime.utcnow())
+    orden.estado = EstadoOrden.IN_PROGRESS
+    orden.monto_autorizado = None
+    
+    try:
+        orden.intentar_completar()
+        assert False, "Debería lanzar ErrorDominio"
+    except ErrorDominio as e:
+        assert e.codigo == CodigoError.SEQUENCE_ERROR
+        assert "no autorizada" in str(e.mensaje).lower()
+
+
+def test_orden_order_id_vacio_lanza_error():
+    """Test que orden con order_id vacío lanza error."""
+    with pytest.raises(ErrorDominio) as exc_info:
+        Orden("", "Juan", "ABC-123", datetime.utcnow())
+    assert exc_info.value.codigo == CodigoError.INVALID_OPERATION
+    assert "order_id no puede estar vacío" in exc_info.value.mensaje
+
+
+def test_orden_order_id_solo_espacios_lanza_error():
+    """Test que orden con order_id solo espacios lanza error."""
+    with pytest.raises(ErrorDominio) as exc_info:
+        Orden("   ", "Juan", "ABC-123", datetime.utcnow())
+    assert exc_info.value.codigo == CodigoError.INVALID_OPERATION
+
+
+def test_orden_order_id_formato_invalido_lanza_error():
+    """Test que orden con order_id con formato inválido lanza error."""
+    with pytest.raises(ErrorDominio) as exc_info:
+        Orden("ord-001", "Juan", "ABC-123", datetime.utcnow())
+    assert exc_info.value.codigo == CodigoError.INVALID_OPERATION
+    assert "formato inválido" in exc_info.value.mensaje
+
+
+def test_orden_order_id_formato_valido():
+    """Test que orden con order_id con formato válido se crea correctamente."""
+    orden = Orden("ORD-001", "Juan", "ABC-123", datetime.utcnow())
+    assert orden.order_id == "ORD-001"
+
+
+def test_servicio_costo_negativo_lanza_error():
+    """Test que servicio con costo negativo lanza error."""
+    with pytest.raises(ErrorDominio) as exc_info:
+        Servicio("Reparación", Decimal("-100.00"))
+    assert exc_info.value.codigo == CodigoError.INVALID_AMOUNT
+    assert "debe ser positivo" in exc_info.value.mensaje
+
+
+def test_servicio_costo_cero_valido():
+    """Test que servicio con costo cero es válido."""
+    servicio = Servicio("Reparación", Decimal("0.00"))
+    assert servicio.costo_mano_obra_estimado == Decimal("0.00")
+
+
+def test_componente_costo_estimado_negativo_lanza_error():
+    """Test que componente con costo estimado negativo lanza error."""
+    with pytest.raises(ErrorDominio) as exc_info:
+        Componente("Aceite", Decimal("-50.00"))
+    assert exc_info.value.codigo == CodigoError.INVALID_AMOUNT
+    assert "debe ser positivo" in exc_info.value.mensaje
+
+
+def test_componente_costo_real_negativo_lanza_error():
+    """Test que componente con costo real negativo lanza error."""
+    with pytest.raises(ErrorDominio) as exc_info:
+        Componente("Aceite", Decimal("50.00"), costo_real=Decimal("-30.00"))
+    assert exc_info.value.codigo == CodigoError.INVALID_AMOUNT
+    assert "debe ser positivo" in exc_info.value.mensaje
+
+
+def test_componente_costo_real_none_valido():
+    """Test que componente con costo_real None es válido."""
+    componente = Componente("Aceite", Decimal("50.00"), costo_real=None)
+    assert componente.costo_real is None
+
+
+def test_componente_costo_cero_valido():
+    """Test que componente con costo cero es válido."""
+    componente = Componente("Aceite", Decimal("0.00"))
+    assert componente.costo_estimado == Decimal("0.00")
     orden = Orden("ORD-001", "Juan", "Auto", datetime.utcnow())
     orden.estado = EstadoOrden.IN_PROGRESS
     orden.monto_autorizado = None

@@ -2,15 +2,12 @@ from ...domain.entidades import Servicio, Componente
 from ...domain.exceptions import ErrorDominio
 from ...domain.enums import CodigoError
 from ...domain.dinero import a_decimal
-from ..ports import RepositorioOrden, AlmacenEventos
+from .base import AccionBase
 from ..dtos import AgregarServicioDTO, EstablecerCostoRealDTO, OrdenDTO
 from ..mappers import orden_a_dto
 
 
-class AgregarServicio:
-    def __init__(self, repo: RepositorioOrden, auditoria: AlmacenEventos):
-        self.repo = repo
-        self.auditoria = auditoria
+class AgregarServicio(AccionBase):
     
     def ejecutar(self, dto: AgregarServicioDTO) -> OrdenDTO:
         orden = self.repo.obtener(dto.order_id)
@@ -44,10 +41,7 @@ class AgregarServicio:
         return comps
 
 
-class EstablecerCostoReal:
-    def __init__(self, repo: RepositorioOrden, auditoria: AlmacenEventos):
-        self.repo = repo
-        self.auditoria = auditoria
+class EstablecerCostoReal(AccionBase):
     
     def ejecutar(self, dto: EstablecerCostoRealDTO) -> OrdenDTO:
         orden = self.repo.obtener(dto.order_id)

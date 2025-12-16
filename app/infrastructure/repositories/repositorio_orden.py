@@ -32,29 +32,46 @@ class RepositorioOrden(IRepositorioOrden):
         self.sesion.expire_all()
         return self._deserializar(modelo)
     
-    def guardar(self, orden: Orden) -> None:
+    def _obtener_o_crear_cliente_vehiculo(self, orden: Orden) -> tuple:
+        """Obtiene o crea cliente y vehículo, retorna sus IDs."""
         cliente = self.repo_cliente.buscar_o_crear_por_nombre(orden.cliente)
         vehiculo = self.repo_vehiculo.buscar_o_crear_por_placa(orden.vehiculo, cliente.id_cliente)
+        return cliente.id_cliente, vehiculo.id_vehiculo
+    
+    def _validar_ids_orden(self, orden: Orden, modelo: OrdenModel) -> None:
+        """Valida que los IDs de la orden sean consistentes."""
+        if orden.id is not None and modelo.id != orden.id:
+            raise ValueError(f"order_id '{orden.order_id}' ya existe con un id diferente")
+    
+    def _validar_id_nuevo(self, orden: Orden) -> None:
+        """Valida que el ID de una orden nueva no exista ya."""
+        if orden.id is not None:
+            modelo_existente = self.sesion.query(OrdenModel).filter(OrdenModel.id == orden.id).first()
+            if modelo_existente:
+                raise ValueError(f"Ya existe una orden con id {orden.id}")
+    
+    def _guardar_entidades_relacionadas(self, modelo_id: int, orden: Orden, modelo: OrdenModel) -> None:
+        """Guarda servicios y eventos relacionados con la orden."""
+        self.repo_servicio.guardar_servicios(modelo_id, orden.servicios, modelo.servicios)
+        self.repo_evento.guardar_eventos(modelo_id, orden.eventos, modelo.eventos)
+    
+    def guardar(self, orden: Orden) -> None:
+        id_cliente, id_vehiculo = self._obtener_o_crear_cliente_vehiculo(orden)
         
         modelo = self.sesion.query(OrdenModel).filter(OrdenModel.order_id == orden.order_id).first()
         
         if modelo:
-            if orden.id is not None and modelo.id != orden.id:
-                raise ValueError(f"order_id '{orden.order_id}' ya existe con un id diferente")
-            self._actualizar_modelo(modelo, orden, cliente.id_cliente, vehiculo.id_vehiculo)
+            self._validar_ids_orden(orden, modelo)
+            self._actualizar_modelo(modelo, orden, id_cliente, id_vehiculo)
             orden.id = modelo.id
         else:
-            if orden.id is not None:
-                modelo_existente = self.sesion.query(OrdenModel).filter(OrdenModel.id == orden.id).first()
-                if modelo_existente:
-                    raise ValueError(f"Ya existe una orden con id {orden.id}")
-            modelo = self._serializar(orden, cliente.id_cliente, vehiculo.id_vehiculo)
+            self._validar_id_nuevo(orden)
+            modelo = self._serializar(orden, id_cliente, id_vehiculo)
             self.sesion.add(modelo)
             self.sesion.flush()
             orden.id = modelo.id
         
-        self.repo_servicio.guardar_servicios(modelo.id, orden.servicios, modelo.servicios)
-        self.repo_evento.guardar_eventos(modelo.id, orden.eventos, modelo.eventos)
+        self._guardar_entidades_relacionadas(modelo.id, orden, modelo)
         self.sesion.commit()
         
     

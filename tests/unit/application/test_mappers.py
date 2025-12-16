@@ -1,3 +1,4 @@
+import pytest
 from decimal import Decimal
 from datetime import datetime, timezone
 from app.application.mappers import (
@@ -412,12 +413,12 @@ def test_crear_orden_dto_vehicle_extra_vacio():
 
 
 def test_orden_a_dto_sin_order_id():
-    ord = Orden("", "Juan", "Auto", datetime.now(timezone.utc))
-    try:
-        orden_a_dto(ord)
-        assert False, "Debería lanzar ValueError"
-    except ValueError as e:
-        assert "order_id" in str(e).lower()
+    from app.domain.exceptions import ErrorDominio
+    from app.domain.enums import CodigoError
+    with pytest.raises(ErrorDominio) as exc_info:
+        Orden("", "Juan", "Auto", datetime.now(timezone.utc))
+    assert exc_info.value.codigo == CodigoError.INVALID_OPERATION
+    assert "order_id" in exc_info.value.mensaje.lower()
 
 
 def test_cliente_a_dto_sin_id():

@@ -1,46 +1,35 @@
 from ...domain.exceptions import ErrorDominio
 from ...domain.enums import CodigoError
-from ..ports import RepositorioOrden, AlmacenEventos
+from .base import AccionBase
 from ..dtos import EstablecerEstadoDiagnosticadoDTO, EstablecerEstadoEnProcesoTDTO, OrdenDTO
 from ..mappers import orden_a_dto
 
 
-class EstablecerEstadoDiagnosticado:
-    def __init__(self, repo: RepositorioOrden, auditoria: AlmacenEventos):
-        self.repo = repo
-        self.auditoria = auditoria
-    
+class EstablecerEstadoDiagnosticado(AccionBase):
     def ejecutar(self, dto: EstablecerEstadoDiagnosticadoDTO) -> OrdenDTO:
         orden = self.repo.obtener(dto.order_id)
         if orden is None:
             raise ErrorDominio(CodigoError.ORDER_NOT_FOUND, f"Orden {dto.order_id} no existe")
         
+        idx_ant = self._obtener_indice_eventos_anterior(orden)
         orden.establecer_estado_diagnosticado()
         
-        for evt in orden.eventos:
-            self.auditoria.registrar(evt)
-        
+        self._registrar_eventos_nuevos(orden, idx_ant)
         self.repo.guardar(orden)
         return orden_a_dto(orden)
 
 
-class EstablecerEstadoEnProceso:
-    def __init__(self, repositorio: RepositorioOrden, audit: AlmacenEventos):
-        self.repositorio = repositorio
-        self.audit = audit
-    
+class EstablecerEstadoEnProceso(AccionBase):
     def ejecutar(self, dto: EstablecerEstadoEnProcesoTDTO) -> OrdenDTO:
-        o = self.repositorio.obtener(dto.order_id)
+        o = self.repo.obtener(dto.order_id)
         if not o:
             raise ErrorDominio(CodigoError.ORDER_NOT_FOUND, f"Orden {dto.order_id} no existe")
         
-        eventos_antes = len(o.eventos)
+        idx_ant = self._obtener_indice_eventos_anterior(o)
         o.establecer_estado_en_proceso()
-        eventos_nuevos = o.eventos[eventos_antes:]
         
-        self.repositorio.guardar(o)
-        for evento in eventos_nuevos:
-            self.audit.registrar(evento)
+        self.repo.guardar(o)
+        self._registrar_eventos_nuevos(o, idx_ant)
         
         return orden_a_dto(o)
 

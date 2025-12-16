@@ -5,15 +5,14 @@ from ...domain.entidades import Orden, Evento
 from ...domain.exceptions import ErrorDominio
 from ...domain.enums import CodigoError
 from ...domain.zona_horaria import ahora
-from ..ports import RepositorioOrden, AlmacenEventos
+from .base import AccionBase
 from ..dtos import CrearOrdenDTO, CancelarDTO, EntregarDTO, OrdenDTO
 from ..mappers import orden_a_dto
 
 
-class CrearOrden:
-    def __init__(self, repo: RepositorioOrden, auditoria: AlmacenEventos, repo_cliente=None, repo_vehiculo=None):
-        self.repo = repo
-        self.auditoria = auditoria
+class CrearOrden(AccionBase):
+    def __init__(self, repo, auditoria, repo_cliente=None, repo_vehiculo=None):
+        super().__init__(repo, auditoria)
         self.repo_cliente = repo_cliente
         self.repo_vehiculo = repo_vehiculo
     
@@ -79,46 +78,36 @@ class CrearOrden:
         orden = Orden(dto.order_id, cliente_nombre, vehiculo_placa, dto.timestamp)
         orden.eventos.append(Evento("CREATED", ahora(), {}))
         
+        idx_ant = self._obtener_indice_eventos_anterior(orden)
         self.repo.guardar(orden)
-        for evt in orden.eventos:
-            self.auditoria.registrar(evt)
+        self._registrar_eventos_nuevos(orden, idx_ant)
         return orden_a_dto(orden)
 
 
-class CancelarOrden:
-    def __init__(self, repo: RepositorioOrden, auditoria: AlmacenEventos):
-        self.repo = repo
-        self.auditoria = auditoria
-    
+class CancelarOrden(AccionBase):
     def ejecutar(self, dto: CancelarDTO) -> OrdenDTO:
         o = self.repo.obtener(dto.order_id)
         if o is None:
             raise ErrorDominio(CodigoError.ORDER_NOT_FOUND, f"No existe orden {dto.order_id}")
         
-        idx_prev = len(o.eventos)
+        idx_prev = self._obtener_indice_eventos_anterior(o)
         o.cancelar(dto.motivo)
         
         self.repo.guardar(o)
-        for evt in o.eventos[idx_prev:]:
-            self.auditoria.registrar(evt)
+        self._registrar_eventos_nuevos(o, idx_prev)
         return orden_a_dto(o)
 
 
-class EntregarOrden:
-    def __init__(self, repositorio: RepositorioOrden, audit: AlmacenEventos):
-        self.repositorio = repositorio
-        self.audit = audit
-    
+class EntregarOrden(AccionBase):
     def ejecutar(self, dto: EntregarDTO) -> OrdenDTO:
-        orden = self.repositorio.obtener(dto.order_id)
+        orden = self.repo.obtener(dto.order_id)
         if orden is None:
             raise ErrorDominio(CodigoError.ORDER_NOT_FOUND, f"Orden {dto.order_id} no existe")
         
+        idx_ant = self._obtener_indice_eventos_anterior(orden)
         orden.entregar()
         
-        for evt in orden.eventos:
-            self.audit.registrar(evt)
-        
-        self.repositorio.guardar(orden)
+        self.repo.guardar(orden)
+        self._registrar_eventos_nuevos(orden, idx_ant)
         return orden_a_dto(orden)
 

@@ -131,6 +131,38 @@ class ActionService:
         
         return None, [], err
     
+    def _manejar_error_validacion(self, ve: ValueError, op: str, order_id: Optional[str]) -> Tuple[Optional[OrdenDTO], List[EventoDTO], ErrorDTO]:
+        """Maneja errores de validación (ValueError)."""
+        msg = str(ve)
+        ctx = obtener_contexto_log()
+        logger.error(
+            msg,
+            extra={**ctx, "op": op, "order_id": order_id, "operacion": op}
+        )
+        return None, [], ErrorDTO(
+            op=op,
+            order_id=order_id,
+            code=CodigoError.INVALID_OPERATION.value,
+            message=msg
+        )
+    
+    def _manejar_error_inesperado(self, e: Exception, op: str, order_id: Optional[str], data: dict) -> Tuple[Optional[OrdenDTO], List[EventoDTO], ErrorDTO]:
+        """Maneja errores inesperados (excepciones genéricas)."""
+        ctx = obtener_contexto_log()
+        logger.error(
+            f"Error inesperado {op}: {str(e)}",
+            extra={
+                **ctx,
+                "op": op,
+                "order_id": order_id,
+                "operacion": op,
+                "error_type": type(e).__name__,
+                "data": str(data)[:200] if data else None
+            },
+            exc_info=True
+        )
+        return None, [], ErrorDTO(op=op, order_id=order_id, code="INTERNAL_ERROR", message=str(e))
+    
     def procesar_comando(self, comando: Dict[str, Any]) -> Tuple[Optional[OrdenDTO], List[EventoDTO], Optional[ErrorDTO]]:
         op = comando.get("op")
         data = comando.get("data", {})
@@ -144,35 +176,11 @@ class ActionService:
             return orden_dto, nuevos_evts, None
         
         except ValueError as ve:
-            msg = str(ve)
-            ctx = obtener_contexto_log()
-            logger.error(
-                msg,
-                extra={**ctx, "op": op, "order_id": order_id, "operacion": op}
-            )
-            return None, [], ErrorDTO(
-                op=op,
-                order_id=order_id,
-                code=CodigoError.INVALID_OPERATION.value,
-                message=msg
-            )
+            return self._manejar_error_validacion(ve, op, order_id)
         
         except ErrorDominio as e:
             return self._manejar_error_dominio(e, op, order_id, evts_ant)
         
         except Exception as e:
-            ctx = obtener_contexto_log()
-            logger.error(
-                f"Error inesperado {op}: {str(e)}",
-                extra={
-                    **ctx,
-                    "op": op,
-                    "order_id": order_id,
-                    "operacion": op,
-                    "error_type": type(e).__name__,
-                    "data": str(data)[:200] if data else None
-                },
-                exc_info=True
-            )
-            return None, [], ErrorDTO(op=op, order_id=order_id, code="INTERNAL_ERROR", message=str(e))
+            return self._manejar_error_inesperado(e, op, order_id, data)
 
