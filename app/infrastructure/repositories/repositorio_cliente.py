@@ -29,8 +29,14 @@ class RepositorioClienteSQL:
         return cliente
     
     def buscar_por_identificacion(self, identificacion: str) -> Optional[Cliente]:
+        if not identificacion:
+            return None
+        
         try:
-            m = self.sesion.query(ClienteModel).filter(ClienteModel.identificacion == identificacion).first()
+            m = self.sesion.query(ClienteModel).filter(
+                ClienteModel.identificacion == identificacion,
+                ClienteModel.identificacion.isnot(None)
+            ).first()
         except Exception:
             m = None
         

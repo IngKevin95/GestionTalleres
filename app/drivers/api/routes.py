@@ -439,32 +439,30 @@ def cancelar_orden(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.mensaje)
 
 
-@router.get("/customers", response_model=ListClientesResponse, tags=["Clientes"])
-def listar_clientes(
-    repo_cliente: RepositorioClienteSQL = Depends(obtener_repositorio_cliente)
-):
-    clientes = repo_cliente.listar()
-    clientes_response = [
-        ClienteResponse(
-            id_cliente=c.id_cliente,
-            nombre=c.nombre,
-            identificacion=c.identificacion,
-            correo=c.correo,
-            direccion=c.direccion,
-            celular=c.celular
-        )
-        for c in clientes
-    ]
-    return ListClientesResponse(clientes=clientes_response)
-
-
-@router.get("/customers", response_model=ClienteResponse, tags=["Clientes"])
-def obtener_cliente(
+@router.get("/customers", tags=["Clientes"])
+def obtener_cliente_o_listar(
     id_cliente: Optional[int] = Query(None),
     identificacion: Optional[str] = Query(None),
     nombre: Optional[str] = Query(None),
     repo_cliente: RepositorioClienteSQL = Depends(obtener_repositorio_cliente)
 ):
+    # Si no se proporciona ningún criterio, listar todos
+    if id_cliente is None and identificacion is None and nombre is None:
+        clientes = repo_cliente.listar()
+        clientes_response = [
+            ClienteResponse(
+                id_cliente=c.id_cliente,
+                nombre=c.nombre,
+                identificacion=c.identificacion,
+                correo=c.correo,
+                direccion=c.direccion,
+                celular=c.celular
+            )
+            for c in clientes
+        ]
+        return ListClientesResponse(clientes=clientes_response)
+    
+    # Si se proporciona al menos un criterio, buscar uno específico
     customer = CustomerIdentifier(id_cliente=id_cliente, identificacion=identificacion, nombre=nombre)
     cliente = obtener_cliente_por_criterio(customer, repo_cliente)
     return ClienteResponse(
@@ -588,38 +586,35 @@ def obtener_vehiculos_cliente(
     return ListVehiculosResponse(vehiculos=vehiculos_response)
 
 
-@router.get("/vehicles", response_model=ListVehiculosResponse, tags=["Vehículos"])
-def listar_vehiculos(
-    repo_vehiculo: RepositorioVehiculoSQL = Depends(obtener_repositorio_vehiculo),
-    repo_cliente: RepositorioClienteSQL = Depends(obtener_repositorio_cliente)
-):
-    vehiculos = repo_vehiculo.listar()
-    vehiculos_response = []
-    for v in vehiculos:
-        cliente = repo_cliente.obtener(v.id_cliente)
-        cliente_nombre = cliente.nombre if cliente else None
-        vehiculos_response.append(
-            VehiculoResponse(
-                id_vehiculo=v.id_vehiculo,
-                placa=v.placa,
-                marca=v.marca,
-                modelo=v.modelo,
-                anio=v.anio,
-                kilometraje=v.kilometraje,
-                id_cliente=v.id_cliente,
-                cliente_nombre=cliente_nombre
-            )
-        )
-    return ListVehiculosResponse(vehiculos=vehiculos_response)
-
-
-@router.get("/vehicles", response_model=VehiculoResponse, tags=["Vehículos"])
-def obtener_vehiculo(
+@router.get("/vehicles", tags=["Vehículos"])
+def obtener_vehiculo_o_listar(
     id_vehiculo: Optional[int] = Query(None),
     placa: Optional[str] = Query(None),
     repo_vehiculo: RepositorioVehiculoSQL = Depends(obtener_repositorio_vehiculo),
     repo_cliente: RepositorioClienteSQL = Depends(obtener_repositorio_cliente)
 ):
+    # Si no se proporciona ningún criterio, listar todos
+    if id_vehiculo is None and placa is None:
+        vehiculos = repo_vehiculo.listar()
+        vehiculos_response = []
+        for v in vehiculos:
+            cliente = repo_cliente.obtener(v.id_cliente)
+            cliente_nombre = cliente.nombre if cliente else None
+            vehiculos_response.append(
+                VehiculoResponse(
+                    id_vehiculo=v.id_vehiculo,
+                    placa=v.placa,
+                    marca=v.marca,
+                    modelo=v.modelo,
+                    anio=v.anio,
+                    kilometraje=v.kilometraje,
+                    id_cliente=v.id_cliente,
+                    cliente_nombre=cliente_nombre
+                )
+            )
+        return ListVehiculosResponse(vehiculos=vehiculos_response)
+    
+    # Si se proporciona al menos un criterio, buscar uno específico
     vehicle = VehicleIdentifier(id_vehiculo=id_vehiculo, placa=placa)
     vehiculo = obtener_vehiculo_por_criterio(vehicle, repo_vehiculo)
     
