@@ -16,7 +16,7 @@ from .acciones import (
     Autorizar, EstablecerEstadoEnProceso, EstablecerCostoReal,
     IntentarCompletar, Reautorizar, EntregarOrden, CancelarOrden
 )
-from ..infrastructure.logging_config import obtener_logger
+from ..infrastructure.logging_config import obtener_logger, obtener_contexto_log
 
 
 logger = obtener_logger("app.application.action_service")
@@ -95,7 +95,11 @@ class ActionService:
                 
                 case _:
                     msg = f"Operación desconocida: {op}"
-                    logger.error(msg)
+                    ctx = obtener_contexto_log()
+                    logger.error(
+                        msg,
+                        extra={**ctx, "op": op, "order_id": order_id, "operacion": op}
+                    )
                     return None, [], ErrorDTO(
                         op=op,
                         order_id=order_id,
@@ -109,7 +113,19 @@ class ActionService:
             return orden_dto, nuevos_evts, None
         
         except ErrorDominio as e:
-            logger.error(f"Error {op}: {e.mensaje}", exc_info=True)
+            ctx = obtener_contexto_log()
+            logger.error(
+                f"Error {op}: {e.mensaje}",
+                extra={
+                    **ctx,
+                    "op": op,
+                    "order_id": order_id,
+                    "operacion": op,
+                    "error_code": e.codigo.value,
+                    **e.contexto
+                },
+                exc_info=True
+            )
             err = ErrorDTO(op=op, order_id=order_id, code=e.codigo.value, message=e.mensaje)
             
             if e.codigo == CodigoError.REQUIRES_REAUTH:
@@ -122,6 +138,17 @@ class ActionService:
             
             return None, [], err
         except Exception as e:
-            logger.error(f"Error inesperado {op}: {str(e)}", exc_info=True)
+            ctx = obtener_contexto_log()
+            logger.error(
+                f"Error inesperado {op}: {str(e)}",
+                extra={
+                    **ctx,
+                    "op": op,
+                    "order_id": order_id,
+                    "operacion": op,
+                    "error_type": type(e).__name__
+                },
+                exc_info=True
+            )
             return None, [], ErrorDTO(op=op, order_id=order_id, code="INTERNAL_ERROR", message=str(e))
 

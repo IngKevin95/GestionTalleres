@@ -2,7 +2,10 @@ import os
 import logging
 import logging.handlers
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict, Any
+from contextvars import ContextVar
+
+request_id_var: ContextVar[str] = ContextVar('request_id', default=None)
 
 
 class RotatingFileHandlerSeguro(logging.handlers.TimedRotatingFileHandler):
@@ -19,6 +22,40 @@ class RotatingFileHandlerSizeSeguro(logging.handlers.RotatingFileHandler):
             super().doRollover()
         except (PermissionError, OSError):
             pass
+
+
+def sanitizar_datos(datos: Dict[str, Any], campos_sensibles: Optional[list] = None) -> Dict[str, Any]:
+    """
+    Sanitiza datos sensibles en logs.
+    
+    Args:
+        datos: Diccionario con datos a sanitizar
+        campos_sensibles: Lista de nombres de campos a ocultar. Si es None, usa lista por defecto.
+    
+    Returns:
+        Diccionario con campos sensibles ocultos
+    """
+    if campos_sensibles is None:
+        campos_sensibles = os.getenv("LOG_SENSITIVE_FIELDS", "password,secret,token,api_key,authorization").split(",")
+    
+    campos_sensibles = [c.strip().lower() for c in campos_sensibles if c.strip()]
+    
+    sanitizado = {}
+    for clave, valor in datos.items():
+        clave_lower = clave.lower()
+        if any(campo in clave_lower for campo in campos_sensibles):
+            sanitizado[clave] = "***"
+        elif isinstance(valor, dict):
+            sanitizado[clave] = sanitizar_datos(valor, campos_sensibles)
+        elif isinstance(valor, list):
+            sanitizado[clave] = [
+                sanitizar_datos(item, campos_sensibles) if isinstance(item, dict) else item
+                for item in valor
+            ]
+        else:
+            sanitizado[clave] = valor
+    
+    return sanitizado
 
 
 def configurar_logging():
@@ -40,18 +77,26 @@ def configurar_logging():
             extras = []
             import json
             
+            req_id = request_id_var.get(None)
+            if req_id and not hasattr(record, 'request_id'):
+                extras.append(f"REQUEST_ID: {req_id}")
+            
             campos = [
-                'request_body', 'response_body', 'body', 'comando', 'comando_completo',
+                'request_id', 'request_body', 'response_body', 'body', 'comando', 'comando_completo',
                 'operacion', 'order_id', 'error', 'error_code', 'error_message',
                 'validation_errors', 'comando_index', 'eventos', 'status_orden',
                 'timestamp', 'codigo', 'mensaje', 'error_type'
             ]
+            
+            sanitizar = os.getenv("LOG_SANITIZE", "true").lower() == "true"
             
             for campo in campos:
                 if hasattr(record, campo):
                     val = getattr(record, campo)
                     if val:
                         try:
+                            if isinstance(val, dict) and sanitizar:
+                                val = sanitizar_datos(val)
                             if isinstance(val, (dict, list)):
                                 extras.append(f"{campo.upper()}: {json.dumps(val, ensure_ascii=False, indent=2)}")
                             else:
@@ -172,4 +217,13 @@ def configurar_logging():
 
 def obtener_logger(nombre: str) -> logging.Logger:
     return logging.getLogger(nombre)
+
+
+def obtener_contexto_log() -> Dict[str, Any]:
+    """Extrae contexto común para logs (request_id, etc.)"""
+    ctx = {}
+    req_id = request_id_var.get(None)
+    if req_id:
+        ctx['request_id'] = req_id
+    return ctx
 

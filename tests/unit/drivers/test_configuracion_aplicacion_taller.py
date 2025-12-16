@@ -289,6 +289,54 @@ class TestImportacionesModulos:
             "crear_engine_bd debe estar disponible para conexión"
 
 
+class TestManejadoresErroresConContexto:
+    """Tests para verificar que los manejadores de errores incluyen request_id y contexto."""
+    
+    def test_error_dominio_handler_existe(self):
+        """Test que el manejador de ErrorDominio existe y es callable."""
+        from app.drivers.api.main import error_dominio_handler
+        from app.domain.exceptions import ErrorDominio
+        from app.domain.enums.error_code import CodigoError
+        
+        assert callable(error_dominio_handler)
+        
+        error = ErrorDominio(CodigoError.ORDER_NOT_FOUND, "Orden no encontrada")
+        assert error.contexto == {}
+    
+    def test_error_dominio_con_contexto_se_almacena(self):
+        """Test que ErrorDominio almacena contexto correctamente."""
+        from app.domain.exceptions import ErrorDominio
+        from app.domain.enums.error_code import CodigoError
+        
+        contexto = {"order_id": "ORD-001", "operation": "CREATE"}
+        error = ErrorDominio(CodigoError.INVALID_OPERATION, "Operación inválida", contexto=contexto)
+        
+        assert error.contexto == contexto
+        assert error.contexto["order_id"] == "ORD-001"
+    
+    def test_manejadores_errores_importables(self):
+        """Test que todos los manejadores de errores son importables."""
+        from app.drivers.api.main import (
+            error_dominio_handler,
+            value_error_handler,
+            sqlalchemy_error_handler,
+            generic_exception_handler
+        )
+        
+        assert callable(error_dominio_handler)
+        assert callable(value_error_handler)
+        assert callable(sqlalchemy_error_handler)
+        assert callable(generic_exception_handler)
+    
+    def test_request_id_var_esta_disponible(self):
+        """Test que request_id_var está disponible para inyección de contexto."""
+        from app.infrastructure.logging_config import request_id_var
+        
+        assert request_id_var is not None
+        request_id_var.set("test-id")
+        assert request_id_var.get(None) == "test-id"
+
+
 class TestManejadoresErroresEspecializados:
     """
     Verifica manejadores de errores específicos

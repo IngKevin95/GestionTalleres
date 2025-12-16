@@ -12,7 +12,7 @@ import json
 if not os.path.exists("/.dockerenv"):
     load_dotenv()
 
-from ...infrastructure.logging_config import configurar_logging, obtener_logger
+from ...infrastructure.logging_config import configurar_logging, obtener_logger, request_id_var, obtener_contexto_log
 from ...infrastructure.db import crear_engine_bd
 from ...domain.exceptions import ErrorDominio
 from .routes import router
@@ -72,6 +72,9 @@ app.include_router(router)
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    req_id = request_id_var.get(None)
+    ctx = obtener_contexto_log()
+    
     body_json = {}
     try:
         body = await request.body()
@@ -99,54 +102,133 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         else:
             mensajes.append(f"Campo '{campo}': {msg}")
     
-    logger.error(f"Validación fallida {request.method} {request.url.path}: {len(error_detail)} errores")
-    
-    return JSONResponse(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content={"detail": mensajes, "errors": error_detail}
+    logger.error(
+        f"Validación fallida {request.method} {request.url.path}: {len(error_detail)} errores",
+        extra={**ctx, "path": request.url.path, "method": request.method, "validation_errors": error_detail}
     )
+    
+    response_content = {"detail": mensajes, "errors": error_detail}
+    if req_id:
+        response_content["request_id"] = req_id
+    
+    response = JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content=response_content
+    )
+    if req_id:
+        response.headers["X-Request-ID"] = req_id
+    return response
 
 
 @app.exception_handler(ErrorDominio)
 async def error_dominio_handler(request: Request, exc: ErrorDominio):
-    logger.error(f"Error dominio: {exc.mensaje}", exc_info=True)
-    return JSONResponse(
-        status_code=status.HTTP_400_BAD_REQUEST,
-        content={"detail": exc.mensaje, "code": exc.codigo.value}
+    req_id = request_id_var.get(None)
+    ctx = obtener_contexto_log()
+    ctx.update(exc.contexto)
+    
+    logger.error(
+        f"Error dominio: {exc.mensaje}",
+        extra={**ctx, "error_code": exc.codigo.value, "path": request.url.path, "method": request.method},
+        exc_info=True
     )
+    
+    response_content = {"detail": exc.mensaje, "code": exc.codigo.value}
+    if req_id:
+        response_content["request_id"] = req_id
+    if exc.contexto:
+        response_content["context"] = exc.contexto
+    
+    response = JSONResponse(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        content=response_content
+    )
+    if req_id:
+        response.headers["X-Request-ID"] = req_id
+    return response
 
 
 @app.exception_handler(ValueError)
 async def value_error_handler(request: Request, exc: ValueError):
-    logger.error(f"ValueError: {str(exc)}", exc_info=True)
-    return JSONResponse(
-        status_code=status.HTTP_400_BAD_REQUEST,
-        content={"detail": str(exc)}
+    req_id = request_id_var.get(None)
+    ctx = obtener_contexto_log()
+    
+    logger.error(
+        f"ValueError: {str(exc)}",
+        extra={**ctx, "path": request.url.path, "method": request.method},
+        exc_info=True
     )
+    
+    response_content = {"detail": str(exc)}
+    if req_id:
+        response_content["request_id"] = req_id
+    
+    response = JSONResponse(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        content=response_content
+    )
+    if req_id:
+        response.headers["X-Request-ID"] = req_id
+    return response
 
 
 @app.exception_handler(KeyError)
 async def key_error_handler(request: Request, exc: KeyError):
-    logger.error(f"KeyError: {str(exc)}")
-    return JSONResponse(
-        status_code=status.HTTP_400_BAD_REQUEST,
-        content={"detail": f"Clave requerida no encontrada: {str(exc)}"}
+    req_id = request_id_var.get(None)
+    ctx = obtener_contexto_log()
+    
+    logger.error(
+        f"KeyError: {str(exc)}",
+        extra={**ctx, "path": request.url.path, "method": request.method, "missing_key": str(exc)}
     )
+    
+    response_content = {"detail": f"Clave requerida no encontrada: {str(exc)}"}
+    if req_id:
+        response_content["request_id"] = req_id
+    
+    response = JSONResponse(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        content=response_content
+    )
+    if req_id:
+        response.headers["X-Request-ID"] = req_id
+    return response
 
 
 @app.exception_handler(ResponseValidationError)
 async def response_validation_error_handler(request: Request, exc: ResponseValidationError):
-    logger.error(f"Error validación respuesta: {str(exc)}", exc_info=True)
-    return JSONResponse(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={"detail": f"Error de validación de respuesta: {str(exc)}"}
+    req_id = request_id_var.get(None)
+    ctx = obtener_contexto_log()
+    
+    logger.error(
+        f"Error validación respuesta: {str(exc)}",
+        extra={**ctx, "path": request.url.path, "method": request.method},
+        exc_info=True
     )
+    
+    response_content = {"detail": f"Error de validación de respuesta: {str(exc)}"}
+    if req_id:
+        response_content["request_id"] = req_id
+    
+    response = JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content=response_content
+    )
+    if req_id:
+        response.headers["X-Request-ID"] = req_id
+    return response
 
 
 @app.exception_handler(SQLAlchemyError)
 async def sqlalchemy_error_handler(request: Request, exc: SQLAlchemyError):
+    req_id = request_id_var.get(None)
+    ctx = obtener_contexto_log()
     msg = str(exc)
-    logger.error(f"Error BD: {msg}", exc_info=True)
+    
+    logger.error(
+        f"Error BD: {msg}",
+        extra={**ctx, "path": request.url.path, "method": request.method, "error_type": "SQLAlchemyError"},
+        exc_info=True
+    )
     
     detail = "Error en la base de datos. Intente más tarde."
     if "does not exist" in msg or "no existe" in msg.lower():
@@ -154,19 +236,41 @@ async def sqlalchemy_error_handler(request: Request, exc: SQLAlchemyError):
     elif "connection" in msg.lower():
         detail = "Error de conexión a la BD"
     
-    return JSONResponse(
+    response_content = {"detail": detail}
+    if req_id:
+        response_content["request_id"] = req_id
+    
+    response = JSONResponse(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-        content={"detail": detail}
+        content=response_content
     )
+    if req_id:
+        response.headers["X-Request-ID"] = req_id
+    return response
 
 
 @app.exception_handler(Exception)
 async def generic_exception_handler(request: Request, exc: Exception):
-    logger.error(f"Error inesperado: {str(exc)}", exc_info=True)
-    return JSONResponse(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={"detail": "Error interno del servidor"}
+    req_id = request_id_var.get(None)
+    ctx = obtener_contexto_log()
+    
+    logger.error(
+        f"Error inesperado: {str(exc)}",
+        extra={**ctx, "path": request.url.path, "method": request.method, "error_type": type(exc).__name__},
+        exc_info=True
     )
+    
+    response_content = {"detail": "Error interno del servidor"}
+    if req_id:
+        response_content["request_id"] = req_id
+    
+    response = JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content=response_content
+    )
+    if req_id:
+        response.headers["X-Request-ID"] = req_id
+    return response
 
 
 
