@@ -1,17 +1,42 @@
-from fastapi import Depends
+from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
 
 from ...infrastructure.db import obtener_sesion
 from ...infrastructure.repositories import RepositorioOrden, RepositorioClienteSQL, RepositorioVehiculoSQL, UnidadTrabajoSQL
 from ...infrastructure.logger import AlmacenEventosLogger
+from ...infrastructure.logging_config import obtener_logger
 
 from ...application.action_service import ActionService
 
 
+logger = obtener_logger("app.drivers.api.dependencies")
+
+
 def obtener_sesion_db() -> Session:
+    """Proporciona una sesión de BD con manejo automático de transacciones."""
     sesion = obtener_sesion()
     try:
         yield sesion
+        if sesion.is_active:
+            try:
+                sesion.commit()
+            except Exception:
+                sesion.rollback()
+                raise
+    except SQLAlchemyError as e:
+        if sesion.is_active:
+            sesion.rollback()
+        logger.error(f"Error de BD, rollback realizado: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error en base de datos"
+        )
+    except Exception as e:
+        if sesion.is_active:
+            sesion.rollback()
+        logger.error(f"Error inesperado, rollback realizado: {str(e)}", exc_info=True)
+        raise
     finally:
         sesion.close()
 

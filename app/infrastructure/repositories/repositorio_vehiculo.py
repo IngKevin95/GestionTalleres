@@ -81,6 +81,9 @@ class RepositorioVehiculoSQL:
                         f"La placa {placa} ya está asociada al cliente '{nombre_cliente_actual}' (ID: {vehiculo_existente.id_cliente}). No se puede asociar a otro cliente."
                     )
             raise
+        except Exception:
+            self.sesion.rollback()
+            raise
         
         return vehiculo
     
@@ -130,18 +133,29 @@ class RepositorioVehiculoSQL:
         return resultado
     
     def guardar(self, vehiculo: Vehiculo) -> None:
-        if vehiculo.id_vehiculo is not None:
-            m = self.sesion.query(VehiculoModel).filter(VehiculoModel.id_vehiculo == vehiculo.id_vehiculo).first()
-            if m:
-                m.placa = vehiculo.placa
-                m.marca = vehiculo.marca
-                m.modelo = vehiculo.modelo
-                m.anio = vehiculo.anio
-                m.kilometraje = vehiculo.kilometraje
-                m.id_cliente = vehiculo.id_cliente
+        try:
+            if vehiculo.id_vehiculo is not None:
+                m = self.sesion.query(VehiculoModel).filter(VehiculoModel.id_vehiculo == vehiculo.id_vehiculo).first()
+                if m:
+                    m.placa = vehiculo.placa
+                    m.marca = vehiculo.marca
+                    m.modelo = vehiculo.modelo
+                    m.anio = vehiculo.anio
+                    m.kilometraje = vehiculo.kilometraje
+                    m.id_cliente = vehiculo.id_cliente
+                else:
+                    nuevo = VehiculoModel(
+                        id_vehiculo=vehiculo.id_vehiculo,
+                        placa=vehiculo.placa,
+                        marca=vehiculo.marca,
+                        modelo=vehiculo.modelo,
+                        anio=vehiculo.anio,
+                        kilometraje=vehiculo.kilometraje,
+                        id_cliente=vehiculo.id_cliente
+                    )
+                    self.sesion.add(nuevo)
             else:
                 nuevo = VehiculoModel(
-                    id_vehiculo=vehiculo.id_vehiculo,
                     placa=vehiculo.placa,
                     marca=vehiculo.marca,
                     modelo=vehiculo.modelo,
@@ -150,17 +164,10 @@ class RepositorioVehiculoSQL:
                     id_cliente=vehiculo.id_cliente
                 )
                 self.sesion.add(nuevo)
-        else:
-            nuevo = VehiculoModel(
-                placa=vehiculo.placa,
-                marca=vehiculo.marca,
-                modelo=vehiculo.modelo,
-                anio=vehiculo.anio,
-                kilometraje=vehiculo.kilometraje,
-                id_cliente=vehiculo.id_cliente
-            )
-            self.sesion.add(nuevo)
-            self.sesion.flush()
-            vehiculo.id_vehiculo = nuevo.id_vehiculo
-        self.sesion.commit()
+                self.sesion.flush()
+                vehiculo.id_vehiculo = nuevo.id_vehiculo
+            self.sesion.commit()
+        except Exception:
+            self.sesion.rollback()
+            raise
 

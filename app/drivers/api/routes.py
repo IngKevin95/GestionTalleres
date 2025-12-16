@@ -171,11 +171,6 @@ def _procesar_comando_individual(
         
     except Exception:
         logger.error(f"Error procesando comando {idx}: {op}", exc_info=True)
-        try:
-            if hasattr(action_service.repo, 'sesion'):
-                action_service.repo.sesion.rollback()
-        except Exception:
-            pass
         raise
 
 
@@ -200,21 +195,26 @@ def procesar_comandos(
     events = []
     errors = []
     
-    try:
-        for idx, comando_raw in enumerate(request_body.commands, 1):
-            comando = _normalizar_comando(comando_raw, idx)
+    sesion = action_service.repo.sesion
+    
+    for idx, comando_raw in enumerate(request_body.commands, 1):
+        comando = _normalizar_comando(comando_raw, idx)
+        try:
             _procesar_comando_individual(
                 comando, idx, action_service,
                 orders_dict, events, errors
             )
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error procesando comandos: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error al procesar comandos"
-        )
+            sesion.expire_all()
+        except HTTPException:
+            sesion.rollback()
+            raise
+        except Exception as e:
+            sesion.rollback()
+            logger.error(f"Error inesperado en comando {idx}: {str(e)}", exc_info=True)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error procesando comando {idx}: {str(e)}"
+            )
     
     return CommandsResponse(
         orders=list(orders_dict.values()),

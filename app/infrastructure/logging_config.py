@@ -79,7 +79,7 @@ def configurar_logging():
             
             req_id = request_id_var.get(None)
             if req_id and not hasattr(record, 'request_id'):
-                extras.append(f"REQUEST_ID: {req_id}")
+                extras.append(f"  REQUEST_ID: {req_id}")
             
             campos = [
                 'request_id', 'request_body', 'response_body', 'body', 'comando', 'comando_completo',
@@ -98,11 +98,11 @@ def configurar_logging():
                             if isinstance(val, dict) and sanitizar:
                                 val = sanitizar_datos(val)
                             if isinstance(val, (dict, list)):
-                                extras.append(f"{campo.upper()}: {json.dumps(val, ensure_ascii=False, indent=2)}")
+                                extras.append(f"  {campo.upper()}: {json.dumps(val, ensure_ascii=False, indent=2)}")
                             else:
-                                extras.append(f"{campo.upper()}: {val}")
+                                extras.append(f"  {campo.upper()}: {val}")
                         except (TypeError, ValueError, AttributeError):
-                            extras.append(f"{campo.upper()}: {str(val)[:500]}")
+                            extras.append(f"  {campo.upper()}: {str(val)[:500]}")
             
             if extras:
                 msg += "\n" + "\n".join(extras)
@@ -188,9 +188,10 @@ def configurar_logging():
     handler_errores.setFormatter(formato_log)
     handler_requests.setFormatter(formato_log)
     
-    handler_general.flush = lambda: None
-    handler_errores.flush = lambda: None
-    handler_requests.flush = lambda: None
+    # Flush habilitado para escritura inmediata de logs
+    # handler_general.flush = lambda: None
+    # handler_errores.flush = lambda: None
+    # handler_requests.flush = lambda: None
     
     logger_raiz.addHandler(handler_general)
     logger_raiz.addHandler(handler_errores)

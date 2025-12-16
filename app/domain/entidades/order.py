@@ -136,6 +136,11 @@ class Orden:
         servicio.costo_real = costo_real
         self._actualizar_costos_componentes(servicio, componentes_reales)
         self._recalcular_total_real()
+        self._agregar_evento("REAL_COST_SET", {
+            "servicio_id": servicio_id,
+            "costo_real": str(costo_real),
+            "total_real": str(self.total_real)
+        })
 
     def _recalcular_total_real(self):
         self.total_real = sum(servicio.calcular_costo_real() for servicio in self.servicios)

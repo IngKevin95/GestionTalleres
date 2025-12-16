@@ -48,12 +48,14 @@ class EstablecerCostoReal(AccionBase):
         if not orden:
             raise ErrorDominio(CodigoError.ORDER_NOT_FOUND, f"Orden {dto.order_id} no existe")
         
+        idx_ant = self._obtener_indice_eventos_anterior(orden)
         servicio_id, servicio = self._obtener_servicio_id_y_objeto(orden, dto)
         orden.establecer_costo_real(servicio_id, dto.costo_real, dto.componentes_reales)
         
         if dto.completed is not None and servicio:
             servicio.completado = dto.completed
         
+        self._registrar_eventos_nuevos(orden, idx_ant)
         self.repo.guardar(orden)
         return orden_a_dto(orden)
     

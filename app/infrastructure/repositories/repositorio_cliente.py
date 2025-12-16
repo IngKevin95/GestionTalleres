@@ -22,11 +22,10 @@ class RepositorioClienteSQL:
             self.sesion.flush()
             cliente.id_cliente = modelo.id_cliente
             self.sesion.commit()
+            return cliente
         except Exception:
             self.sesion.rollback()
             raise
-        
-        return cliente
     
     def buscar_por_identificacion(self, identificacion: str) -> Optional[Cliente]:
         if not identificacion:

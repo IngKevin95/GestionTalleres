@@ -37,11 +37,11 @@ class RepositorioOrden(IRepositorioOrden):
         return self.unidad_trabajo.obtener_repositorio_evento()
     
     def obtener(self, order_id: str) -> Optional[Orden]:
+        self.sesion.expire_all()
         modelo = self.sesion.query(OrdenModel).filter(OrdenModel.order_id == order_id).first()
         if modelo is None:
             return None
         
-        self.sesion.expire_all()
         return self._deserializar(modelo)
     
     def _obtener_o_crear_cliente_vehiculo(self, orden: Orden) -> tuple:
@@ -79,12 +79,6 @@ class RepositorioOrden(IRepositorioOrden):
             
             if modelo:
                 self._validar_ids_orden(orden, modelo)
-                try:
-                    self.sesion.refresh(modelo)
-                except Exception:
-                    modelo = self.sesion.query(OrdenModel).filter(OrdenModel.order_id == orden.order_id).first()
-                    if not modelo:
-                        raise ValueError(f"Orden {orden.order_id} no encontrada después de rollback")
                 self._actualizar_modelo(modelo, orden, id_cliente, id_vehiculo)
                 orden.id = modelo.id
             else:
@@ -96,6 +90,7 @@ class RepositorioOrden(IRepositorioOrden):
             
             self._guardar_entidades_relacionadas(modelo.id, orden, modelo)
             self.sesion.commit()
+            self.sesion.expire_all()
         except Exception:
             self.sesion.rollback()
             raise
