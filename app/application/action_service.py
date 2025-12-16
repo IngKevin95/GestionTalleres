@@ -163,16 +163,27 @@ class ActionService:
         )
         return None, [], ErrorDTO(op=op, order_id=order_id, code="INTERNAL_ERROR", message=str(e))
     
-    def procesar_comando(self, comando: Dict[str, Any]) -> Tuple[Optional[OrdenDTO], List[EventoDTO], Optional[ErrorDTO]]:
+    def _preparar_ejecucion_comando(self, comando: Dict[str, Any]) -> Tuple[str, dict, Optional[str], Optional[str], int]:
+        """Prepara datos para ejecución: op, data, ts, order_id, evts_ant."""
         op = comando.get("op")
         data = comando.get("data", {})
         ts = comando.get("ts")
         order_id = self._normalizar_order_id(data)
         evts_ant = self._obtener_eventos_anteriores(order_id)
+        return op, data, ts, order_id, evts_ant
+    
+    def _ejecutar_comando_exitoso(self, op: str, data: dict, ts: Optional[str], evts_ant: int) -> Tuple[OrdenDTO, List[EventoDTO]]:
+        """Ejecuta comando y retorna orden y eventos nuevos."""
+        orden_dto = self._crear_accion_por_operacion(op, data, ts)
+        nuevos_evts = self._extraer_nuevos_eventos(orden_dto, evts_ant)
+        return orden_dto, nuevos_evts
+    
+    def procesar_comando(self, comando: Dict[str, Any]) -> Tuple[Optional[OrdenDTO], List[EventoDTO], Optional[ErrorDTO]]:
+        """Orquesta el procesamiento de un comando."""
+        op, data, ts, order_id, evts_ant = self._preparar_ejecucion_comando(comando)
         
         try:
-            orden_dto = self._crear_accion_por_operacion(op, data, ts)
-            nuevos_evts = self._extraer_nuevos_eventos(orden_dto, evts_ant)
+            orden_dto, nuevos_evts = self._ejecutar_comando_exitoso(op, data, ts, evts_ant)
             return orden_dto, nuevos_evts, None
         
         except ValueError as ve:

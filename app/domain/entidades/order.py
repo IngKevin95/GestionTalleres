@@ -122,24 +122,26 @@ class Orden:
         for c in servicio.componentes:
             c.costo_real = None
     
-    def establecer_costo_real(self, servicio_id: int, costo_real: Decimal, componentes_reales: dict = None):
-        if self.estado == EstadoOrden.CANCELLED:
-            raise ErrorDominio(CodigoError.ORDER_CANCELLED, MENSAJE_ORDEN_CANCELADA)
-        
-        servicio = self._buscar_servicio_por_id(servicio_id)
-        servicio.costo_real = costo_real
-        
+    def _actualizar_costos_componentes(self, servicio: Servicio, componentes_reales: dict = None):
+        """Actualiza costos de componentes o los limpia si no se proporcionan."""
         if componentes_reales:
             self._aplicar_costos_componentes(servicio, componentes_reales)
         else:
             self._limpiar_costos_componentes(servicio)
-        
+    
+    def establecer_costo_real(self, servicio_id: int, costo_real: Decimal, componentes_reales: dict = None):
+        """Establece costo real de un servicio y sus componentes."""
+        self._validar_no_cancelada()
+        servicio = self._buscar_servicio_por_id(servicio_id)
+        servicio.costo_real = costo_real
+        self._actualizar_costos_componentes(servicio, componentes_reales)
         self._recalcular_total_real()
 
     def _recalcular_total_real(self):
         self.total_real = sum(servicio.calcular_costo_real() for servicio in self.servicios)
 
-    def intentar_completar(self):
+    def _validar_precondiciones_completar(self):
+        """Valida estado, autorización y existencia de servicios."""
         if self.estado == EstadoOrden.CANCELLED:
             raise ErrorDominio(CodigoError.ORDER_CANCELLED, MENSAJE_ORDEN_CANCELADA)
         
@@ -159,7 +161,9 @@ class Orden:
         
         if not self.servicios:
             raise ErrorDominio(CodigoError.NO_SERVICES, "No hay servicios")
-        
+
+    def _validar_servicios_completados(self):
+        """Valida que todos los servicios estén completados."""
         for s in self.servicios:
             if not s.completado:
                 raise ErrorDominio(
@@ -167,7 +171,9 @@ class Orden:
                     f"Faltan servicios por completar. Servicio '{s.descripcion}' (id: {s.id_servicio}) no está completado",
                     contexto={"order_id": self.order_id, "servicio_incompleto": s.descripcion, "servicio_id": s.id_servicio}
                 )
-        
+
+    def _validar_limite_110_porciento(self) -> Decimal:
+        """Valida límite 110% y retorna el límite calculado. Lanza error si se excede."""
         self._recalcular_total_real()
         limite = redondear_mitad_par(self.monto_autorizado * Decimal('1.10'), 2)
         
@@ -187,6 +193,14 @@ class Orden:
                     "exceso": str(self.total_real - limite)
                 }
             )
+        
+        return limite
+
+    def intentar_completar(self):
+        """Intenta completar la orden validando límite 110%."""
+        self._validar_precondiciones_completar()
+        self._validar_servicios_completados()
+        self._validar_limite_110_porciento()
         
         self.estado = EstadoOrden.COMPLETED
         self._agregar_evento("COMPLETED")
