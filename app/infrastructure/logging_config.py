@@ -7,12 +7,16 @@ from contextvars import ContextVar
 
 request_id_var: ContextVar[str] = ContextVar('request_id', default=None)
 
+ARCHIVO_LOG_APP = "app.log"
+ARCHIVO_LOG_ERRORES = "errors.log"
+ARCHIVO_LOG_REQUESTS = "requests.log"
+
 
 class RotatingFileHandlerSeguro(logging.handlers.TimedRotatingFileHandler):
     def doRollover(self):
         try:
             super().doRollover()
-        except (PermissionError, OSError):
+        except OSError:
             pass
 
 
@@ -20,7 +24,7 @@ class RotatingFileHandlerSizeSeguro(logging.handlers.RotatingFileHandler):
     def doRollover(self):
         try:
             super().doRollover()
-        except (PermissionError, OSError):
+        except OSError:
             pass
 
 
@@ -58,6 +62,152 @@ def sanitizar_datos(datos: Dict[str, Any], campos_sensibles: Optional[list] = No
     return sanitizado
 
 
+def _agregar_request_id_si_falta(record, extras):
+    """Agrega request_id a extras si está disponible y no está en el record."""
+    req_id = request_id_var.get(None)
+    if req_id and not hasattr(record, 'request_id'):
+        extras.append(f"  REQUEST_ID: {req_id}")
+
+
+def _procesar_campo_log(campo, val, sanitizar):
+    """Procesa un campo del record y retorna su representación formateada."""
+    import json
+    try:
+        if isinstance(val, dict) and sanitizar:
+            val = sanitizar_datos(val)
+        if isinstance(val, (dict, list)):
+            return f"  {campo.upper()}: {json.dumps(val, ensure_ascii=False, indent=2)}"
+        return f"  {campo.upper()}: {val}"
+    except (TypeError, ValueError, AttributeError):
+        return f"  {campo.upper()}: {str(val)[:500]}"
+
+
+def _extraer_campos_adicionales(record):
+    """Extrae campos adicionales del record y retorna lista de strings formateados."""
+    campos = [
+        'request_id', 'request_body', 'response_body', 'body', 'comando', 'comando_completo',
+        'operacion', 'order_id', 'error', 'error_code', 'error_message',
+        'validation_errors', 'comando_index', 'eventos', 'status_orden',
+        'timestamp', 'codigo', 'mensaje', 'error_type'
+    ]
+    
+    sanitizar = os.getenv("LOG_SANITIZE", "true").lower() == "true"
+    extras = []
+    
+    for campo in campos:
+        if hasattr(record, campo):
+            val = getattr(record, campo)
+            if val:
+                extras.append(_procesar_campo_log(campo, val, sanitizar))
+    
+    return extras
+
+
+def _crear_formato_log(formato: str) -> logging.Formatter:
+    """Crea el formateador de logs según el formato especificado."""
+    if formato == "json":
+        return logging.Formatter(
+            '{"timestamp": "%(asctime)s", "level": "%(levelname)s", "logger": "%(name)s", "message": "%(message)s", "module": "%(module)s", "function": "%(funcName)s", "line": %(lineno)d}',
+            datefmt="%Y-%m-%dT%H:%M:%S"
+        )
+    
+    class FormatoDetallado(logging.Formatter):
+        def format(self, record):
+            msg = super().format(record)
+            extras = []
+            
+            _agregar_request_id_si_falta(record, extras)
+            extras.extend(_extraer_campos_adicionales(record))
+            
+            if extras:
+                msg += "\n" + "\n".join(extras)
+            return msg
+    
+    return FormatoDetallado(
+        '%(asctime)s - %(name)s - %(levelname)s - %(module)s.%(funcName)s:%(lineno)d - %(message)s',
+        datefmt="%Y-%m-%d %H:%M:%S"
+    )
+
+
+def _crear_handlers(directorio_logs: str, rotacion: str, max_bytes: int, backup_count: int) -> tuple:
+    """Crea los handlers de logging según el tipo de rotación."""
+    if rotacion == "time":
+        handler_general = RotatingFileHandlerSeguro(
+            os.path.join(directorio_logs, ARCHIVO_LOG_APP),
+            when="midnight",
+            interval=1,
+            backupCount=backup_count,
+            encoding="utf-8"
+        )
+        handler_errores = RotatingFileHandlerSeguro(
+            os.path.join(directorio_logs, ARCHIVO_LOG_ERRORES),
+            when="midnight",
+            interval=1,
+            backupCount=backup_count,
+            encoding="utf-8"
+        )
+        handler_requests = RotatingFileHandlerSeguro(
+            os.path.join(directorio_logs, ARCHIVO_LOG_REQUESTS),
+            when="midnight",
+            interval=1,
+            backupCount=backup_count,
+            encoding="utf-8"
+        )
+    elif rotacion == "size":
+        handler_general = RotatingFileHandlerSizeSeguro(
+            os.path.join(directorio_logs, ARCHIVO_LOG_APP),
+            maxBytes=max_bytes,
+            backupCount=backup_count,
+            encoding="utf-8"
+        )
+        handler_errores = RotatingFileHandlerSizeSeguro(
+            os.path.join(directorio_logs, ARCHIVO_LOG_ERRORES),
+            maxBytes=max_bytes,
+            backupCount=backup_count,
+            encoding="utf-8"
+        )
+        handler_requests = RotatingFileHandlerSizeSeguro(
+            os.path.join(directorio_logs, ARCHIVO_LOG_REQUESTS),
+            maxBytes=max_bytes,
+            backupCount=backup_count,
+            encoding="utf-8"
+        )
+    else:
+        handler_general = logging.FileHandler(
+            os.path.join(directorio_logs, ARCHIVO_LOG_APP),
+            encoding="utf-8"
+        )
+        handler_errores = logging.FileHandler(
+            os.path.join(directorio_logs, ARCHIVO_LOG_ERRORES),
+            encoding="utf-8"
+        )
+        handler_requests = logging.FileHandler(
+            os.path.join(directorio_logs, ARCHIVO_LOG_REQUESTS),
+            encoding="utf-8"
+        )
+    
+    handler_general.setLevel(logging.INFO)
+    handler_errores.setLevel(logging.ERROR)
+    handler_requests.setLevel(logging.INFO)
+    
+    return handler_general, handler_errores, handler_requests
+
+
+def _configurar_loggers_especializados(handler_general, handler_errores, handler_requests):
+    """Configura loggers especializados para middleware y errores."""
+    logger_requests = logging.getLogger("app.drivers.api.middleware")
+    logger_requests.addHandler(handler_requests)
+    logger_requests.addHandler(handler_general)
+    logger_requests.setLevel(logging.INFO)
+    logger_requests.propagate = False
+    
+    logger_errores_no_controlados = logging.getLogger("app.drivers.api.errors")
+    logger_errores_no_controlados.addHandler(handler_errores)
+    logger_errores_no_controlados.addHandler(handler_general)
+    logger_errores_no_controlados.setLevel(logging.ERROR)
+    logger_errores_no_controlados.propagate = False
+
+
 def configurar_logging():
     nivel = os.getenv("LOG_LEVEL", "INFO").upper()
     formato = os.getenv("LOG_FORMAT", "text").lower()
@@ -70,54 +220,7 @@ def configurar_logging():
     Path(directorio_logs).mkdir(exist_ok=True)
     
     nivel_logging = getattr(logging, nivel, logging.INFO)
-    
-    class FormatoDetallado(logging.Formatter):
-        def format(self, record):
-            msg = super().format(record)
-            extras = []
-            import json
-            
-            req_id = request_id_var.get(None)
-            if req_id and not hasattr(record, 'request_id'):
-                extras.append(f"  REQUEST_ID: {req_id}")
-            
-            campos = [
-                'request_id', 'request_body', 'response_body', 'body', 'comando', 'comando_completo',
-                'operacion', 'order_id', 'error', 'error_code', 'error_message',
-                'validation_errors', 'comando_index', 'eventos', 'status_orden',
-                'timestamp', 'codigo', 'mensaje', 'error_type'
-            ]
-            
-            sanitizar = os.getenv("LOG_SANITIZE", "true").lower() == "true"
-            
-            for campo in campos:
-                if hasattr(record, campo):
-                    val = getattr(record, campo)
-                    if val:
-                        try:
-                            if isinstance(val, dict) and sanitizar:
-                                val = sanitizar_datos(val)
-                            if isinstance(val, (dict, list)):
-                                extras.append(f"  {campo.upper()}: {json.dumps(val, ensure_ascii=False, indent=2)}")
-                            else:
-                                extras.append(f"  {campo.upper()}: {val}")
-                        except (TypeError, ValueError, AttributeError):
-                            extras.append(f"  {campo.upper()}: {str(val)[:500]}")
-            
-            if extras:
-                msg += "\n" + "\n".join(extras)
-            return msg
-    
-    if formato == "json":
-        formato_log = logging.Formatter(
-            '{"timestamp": "%(asctime)s", "level": "%(levelname)s", "logger": "%(name)s", "message": "%(message)s", "module": "%(module)s", "function": "%(funcName)s", "line": %(lineno)d}',
-            datefmt="%Y-%m-%dT%H:%M:%S"
-        )
-    else:
-        formato_log = FormatoDetallado(
-            '%(asctime)s - %(name)s - %(levelname)s - %(module)s.%(funcName)s:%(lineno)d - %(message)s',
-            datefmt="%Y-%m-%d %H:%M:%S"
-        )
+    formato_log = _crear_formato_log(formato)
     
     logger_raiz = logging.getLogger()
     logger_raiz.setLevel(nivel_logging)
@@ -125,88 +228,18 @@ def configurar_logging():
     for handler in logger_raiz.handlers[:]:
         logger_raiz.removeHandler(handler)
     
-    if rotacion == "time":
-        handler_general = RotatingFileHandlerSeguro(
-            os.path.join(directorio_logs, "app.log"),
-            when="midnight",
-            interval=1,
-            backupCount=backup_count,
-            encoding="utf-8"
-        )
-        handler_errores = RotatingFileHandlerSeguro(
-            os.path.join(directorio_logs, "errors.log"),
-            when="midnight",
-            interval=1,
-            backupCount=backup_count,
-            encoding="utf-8"
-        )
-        handler_requests = RotatingFileHandlerSeguro(
-            os.path.join(directorio_logs, "requests.log"),
-            when="midnight",
-            interval=1,
-            backupCount=backup_count,
-            encoding="utf-8"
-        )
-    elif rotacion == "size":
-        handler_general = RotatingFileHandlerSizeSeguro(
-            os.path.join(directorio_logs, "app.log"),
-            maxBytes=max_bytes,
-            backupCount=backup_count,
-            encoding="utf-8"
-        )
-        handler_errores = RotatingFileHandlerSizeSeguro(
-            os.path.join(directorio_logs, "errors.log"),
-            maxBytes=max_bytes,
-            backupCount=backup_count,
-            encoding="utf-8"
-        )
-        handler_requests = RotatingFileHandlerSizeSeguro(
-            os.path.join(directorio_logs, "requests.log"),
-            maxBytes=max_bytes,
-            backupCount=backup_count,
-            encoding="utf-8"
-        )
-    else:
-        handler_general = logging.FileHandler(
-            os.path.join(directorio_logs, "app.log"),
-            encoding="utf-8"
-        )
-        handler_errores = logging.FileHandler(
-            os.path.join(directorio_logs, "errors.log"),
-            encoding="utf-8"
-        )
-        handler_requests = logging.FileHandler(
-            os.path.join(directorio_logs, "requests.log"),
-            encoding="utf-8"
-        )
-    
-    handler_general.setLevel(logging.INFO)
-    handler_errores.setLevel(logging.ERROR)
-    handler_requests.setLevel(logging.INFO)
+    handler_general, handler_errores, handler_requests = _crear_handlers(
+        directorio_logs, rotacion, max_bytes, backup_count
+    )
     
     handler_general.setFormatter(formato_log)
     handler_errores.setFormatter(formato_log)
     handler_requests.setFormatter(formato_log)
     
-    # Flush habilitado para escritura inmediata de logs
-    # handler_general.flush = lambda: None
-    # handler_errores.flush = lambda: None
-    # handler_requests.flush = lambda: None
-    
     logger_raiz.addHandler(handler_general)
     logger_raiz.addHandler(handler_errores)
     
-    logger_requests = logging.getLogger("app.drivers.api.middleware")
-    logger_requests.addHandler(handler_requests)
-    logger_requests.addHandler(handler_general)
-    logger_requests.setLevel(logging.INFO)
-    logger_requests.propagate = False
-    
-    logger_errores_no_controlados = logging.getLogger("app.drivers.api.errors")
-    logger_errores_no_controlados.addHandler(handler_errores)
-    logger_errores_no_controlados.addHandler(handler_general)
-    logger_errores_no_controlados.setLevel(logging.ERROR)
-    logger_errores_no_controlados.propagate = False
+    _configurar_loggers_especializados(handler_general, handler_errores, handler_requests)
     
     if log_to_console:
         handler_consola = logging.StreamHandler()
