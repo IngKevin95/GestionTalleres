@@ -16,6 +16,53 @@ class CrearOrden(AccionBase):
         self.repo_cliente = repo_cliente
         self.repo_vehiculo = repo_vehiculo
     
+    def _obtener_cliente_con_repositorios(self, dto: CrearOrdenDTO):
+        customer = dto.customer
+        cliente = self.repo_cliente.buscar_o_crear_por_criterio(
+            id_cliente=customer.id_cliente,
+            identificacion=customer.identificacion,
+            nombre=customer.nombre,
+            correo=dto.customer_extra.get("correo") if dto.customer_extra else None,
+            direccion=dto.customer_extra.get("direccion") if dto.customer_extra else None,
+            celular=dto.customer_extra.get("celular") if dto.customer_extra else None
+        )
+        return cliente
+    
+    def _obtener_cliente_sin_repositorios(self, dto: CrearOrdenDTO) -> str:
+        if dto.customer.nombre:
+            return dto.customer.nombre
+        if dto.customer.identificacion:
+            return dto.customer.identificacion
+        if dto.customer.id_cliente:
+            return str(dto.customer.id_cliente)
+        raise ErrorDominio(CodigoError.INVALID_OPERATION, "customer debe tener id_cliente, identificacion o nombre")
+    
+    def _obtener_vehiculo_con_repositorios(self, dto: CrearOrdenDTO, id_cliente) -> str:
+        vehicle = dto.vehicle
+        if vehicle.placa:
+            vehiculo = self.repo_vehiculo.buscar_o_crear_por_placa(
+                placa=vehicle.placa,
+                id_cliente=id_cliente,
+                marca=dto.vehicle_extra.get("marca") if dto.vehicle_extra else None,
+                modelo=dto.vehicle_extra.get("modelo") if dto.vehicle_extra else None,
+                anio=dto.vehicle_extra.get("anio") if dto.vehicle_extra else None,
+                kilometraje=dto.vehicle_extra.get("kilometraje") if dto.vehicle_extra else None
+            )
+            return vehiculo.placa
+        if vehicle.id_vehiculo:
+            vehiculo = self.repo_vehiculo.buscar_por_criterio(id_vehiculo=vehicle.id_vehiculo)
+            if vehiculo is None:
+                raise ErrorDominio(CodigoError.INVALID_OPERATION, f"Vehículo con id {vehicle.id_vehiculo} no encontrado")
+            return vehiculo.placa
+        raise ErrorDominio(CodigoError.INVALID_OPERATION, "vehicle debe tener id_vehiculo o placa")
+    
+    def _obtener_vehiculo_sin_repositorios(self, dto: CrearOrdenDTO) -> str:
+        if dto.vehicle.placa:
+            return dto.vehicle.placa
+        if dto.vehicle.id_vehiculo:
+            return str(dto.vehicle.id_vehiculo)
+        raise ErrorDominio(CodigoError.INVALID_OPERATION, "vehicle debe tener id_vehiculo o placa")
+    
     def ejecutar(self, dto: CrearOrdenDTO) -> OrdenDTO:
         if not dto.order_id:
             raise ErrorDominio(CodigoError.INVALID_OPERATION, "order_id es requerido")
@@ -24,56 +71,13 @@ class CrearOrden(AccionBase):
         if ord_exist:
             return orden_a_dto(ord_exist)
         
-        cliente_nombre = None
-        vehiculo_placa = None
-        
         if self.repo_cliente and self.repo_vehiculo:
-            customer = dto.customer
-            vehicle = dto.vehicle
-            
-            cliente = self.repo_cliente.buscar_o_crear_por_criterio(
-                id_cliente=customer.id_cliente,
-                identificacion=customer.identificacion,
-                nombre=customer.nombre,
-                correo=dto.customer_extra.get("correo") if dto.customer_extra else None,
-                direccion=dto.customer_extra.get("direccion") if dto.customer_extra else None,
-                celular=dto.customer_extra.get("celular") if dto.customer_extra else None
-            )
+            cliente = self._obtener_cliente_con_repositorios(dto)
             cliente_nombre = cliente.nombre
-            
-            if vehicle.placa:
-                vehiculo = self.repo_vehiculo.buscar_o_crear_por_placa(
-                    placa=vehicle.placa,
-                    id_cliente=cliente.id_cliente,
-                    marca=dto.vehicle_extra.get("marca") if dto.vehicle_extra else None,
-                    modelo=dto.vehicle_extra.get("modelo") if dto.vehicle_extra else None,
-                    anio=dto.vehicle_extra.get("anio") if dto.vehicle_extra else None,
-                    kilometraje=dto.vehicle_extra.get("kilometraje") if dto.vehicle_extra else None
-                )
-                vehiculo_placa = vehiculo.placa
-            elif vehicle.id_vehiculo:
-                vehiculo = self.repo_vehiculo.buscar_por_criterio(id_vehiculo=vehicle.id_vehiculo)
-                if vehiculo is None:
-                    raise ErrorDominio(CodigoError.INVALID_OPERATION, f"Vehículo con id {vehicle.id_vehiculo} no encontrado")
-                vehiculo_placa = vehiculo.placa
-            else:
-                raise ErrorDominio(CodigoError.INVALID_OPERATION, "vehicle debe tener id_vehiculo o placa")
+            vehiculo_placa = self._obtener_vehiculo_con_repositorios(dto, cliente.id_cliente)
         else:
-            if dto.customer.nombre:
-                cliente_nombre = dto.customer.nombre
-            elif dto.customer.identificacion:
-                cliente_nombre = dto.customer.identificacion
-            elif dto.customer.id_cliente:
-                cliente_nombre = str(dto.customer.id_cliente)
-            else:
-                raise ErrorDominio(CodigoError.INVALID_OPERATION, "customer debe tener id_cliente, identificacion o nombre")
-            
-            if dto.vehicle.placa:
-                vehiculo_placa = dto.vehicle.placa
-            elif dto.vehicle.id_vehiculo:
-                vehiculo_placa = str(dto.vehicle.id_vehiculo)
-            else:
-                raise ErrorDominio(CodigoError.INVALID_OPERATION, "vehicle debe tener id_vehiculo o placa")
+            cliente_nombre = self._obtener_cliente_sin_repositorios(dto)
+            vehiculo_placa = self._obtener_vehiculo_sin_repositorios(dto)
         
         orden = Orden(dto.order_id, cliente_nombre, vehiculo_placa, dto.timestamp)
         orden.eventos.append(Evento("CREATED", ahora(), {}))

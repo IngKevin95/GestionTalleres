@@ -123,9 +123,9 @@ class ActionService:
         err = ErrorDTO(op=op, order_id=order_id, code=e.codigo.value, message=e.mensaje)
         
         if e.codigo == CodigoError.REQUIRES_REAUTH:
-            ord = self.repo.obtener(order_id)
-            if ord:
-                ord_dto = orden_a_dto(ord)
+            orden_obtenida = self.repo.obtener(order_id)
+            if orden_obtenida:
+                ord_dto = orden_a_dto(orden_obtenida)
                 nuevos_evts = self._extraer_nuevos_eventos(ord_dto, evts_ant)
                 return ord_dto, nuevos_evts, err
         

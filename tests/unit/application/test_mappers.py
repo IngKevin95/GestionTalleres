@@ -182,17 +182,17 @@ def test_evento_a_dto():
 
 
 def test_orden_a_dto():
-    ord = Orden("ORD-001", "Juan", "Auto", datetime.now(timezone.utc))
-    ord.estado = EstadoOrden.AUTHORIZED
-    ord.monto_autorizado = Decimal("1160.00")
-    ord.version_autorizacion = 1
+    orden = Orden("ORD-001", "Juan", "Auto", datetime.now(timezone.utc))
+    orden.estado = EstadoOrden.AUTHORIZED
+    orden.monto_autorizado = Decimal("1160.00")
+    orden.version_autorizacion = 1
     
     srv = Servicio("Servicio", Decimal("1000.00"))
     srv.id_servicio = 1
-    ord.servicios.append(srv)
-    ord.eventos.append(Evento("CREATED", datetime.now(timezone.utc), {}))
+    orden.servicios.append(srv)
+    orden.eventos.append(Evento("CREATED", datetime.now(timezone.utc), {}))
     
-    dto = orden_a_dto(ord)
+    dto = orden_a_dto(orden)
     assert dto.order_id == "ORD-001"
     assert dto.status == "AUTHORIZED"
     assert dto.customer == "Juan"
@@ -204,8 +204,8 @@ def test_orden_a_dto():
 
 
 def test_orden_a_dto_sin_monto():
-    ord = Orden("ORD-001", "Juan", "Auto", datetime.now(timezone.utc))
-    dto = orden_a_dto(ord)
+    orden = Orden("ORD-001", "Juan", "Auto", datetime.now(timezone.utc))
+    dto = orden_a_dto(orden)
     assert dto.authorized_amount is None
 
 

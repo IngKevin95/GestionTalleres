@@ -9,6 +9,9 @@ from .service import Servicio
 from .event import Evento
 
 
+MENSAJE_ORDEN_CANCELADA = "La orden está cancelada"
+
+
 class Orden:
     def __init__(self, order_id: str, cliente: str, vehiculo: str, fecha_creacion: datetime, id: Optional[int] = None):
         if not order_id or not order_id.strip():
@@ -33,7 +36,7 @@ class Orden:
 
     def _validar_no_cancelada(self):
         if self.estado == EstadoOrden.CANCELLED:
-            raise ErrorDominio(CodigoError.ORDER_CANCELLED, "La orden está cancelada")
+            raise ErrorDominio(CodigoError.ORDER_CANCELLED, MENSAJE_ORDEN_CANCELADA)
 
     def _agregar_evento(self, tipo: str, metadatos: dict = None):
         evento = Evento(tipo, ahora(), metadatos or {})
@@ -52,7 +55,7 @@ class Orden:
 
     def establecer_estado_diagnosticado(self):
         if self.estado == EstadoOrden.CANCELLED:
-            raise ErrorDominio(CodigoError.ORDER_CANCELLED, "La orden está cancelada")
+            raise ErrorDominio(CodigoError.ORDER_CANCELLED, MENSAJE_ORDEN_CANCELADA)
         
         if self.estado != EstadoOrden.CREATED:
             raise ErrorDominio(
@@ -66,7 +69,7 @@ class Orden:
 
     def autorizar(self, monto: Decimal):
         if self.estado == EstadoOrden.CANCELLED:
-            raise ErrorDominio(CodigoError.ORDER_CANCELLED, "La orden está cancelada")
+            raise ErrorDominio(CodigoError.ORDER_CANCELLED, MENSAJE_ORDEN_CANCELADA)
         
         if self.estado != EstadoOrden.DIAGNOSED:
             raise ErrorDominio(
@@ -86,7 +89,7 @@ class Orden:
 
     def establecer_estado_en_proceso(self):
         if self.estado == EstadoOrden.CANCELLED:
-            raise ErrorDominio(CodigoError.ORDER_CANCELLED, "La orden está cancelada")
+            raise ErrorDominio(CodigoError.ORDER_CANCELLED, MENSAJE_ORDEN_CANCELADA)
         
         if self.estado != EstadoOrden.AUTHORIZED:
             raise ErrorDominio(
@@ -98,34 +101,38 @@ class Orden:
         self.estado = EstadoOrden.IN_PROGRESS
         self._agregar_evento("IN_PROGRESS")
 
-    def establecer_costo_real(self, servicio_id: int, costo_real: Decimal, componentes_reales: dict = None):
-        if self.estado == EstadoOrden.CANCELLED:
-            raise ErrorDominio(CodigoError.ORDER_CANCELLED, "La orden está cancelada")
-        
-        servicio = None
+    def _buscar_servicio_por_id(self, servicio_id: int) -> Servicio:
         for s in self.servicios:
             if s.id_servicio == servicio_id:
-                servicio = s
-                break
+                return s
+        raise ErrorDominio(
+            CodigoError.ORDER_NOT_FOUND,
+            f"Servicio con id {servicio_id} no encontrado en la orden",
+            contexto={"order_id": self.order_id, "servicio_id": servicio_id, "servicios_disponibles": len(self.servicios)}
+        )
+    
+    def _aplicar_costos_componentes(self, servicio: Servicio, componentes_reales: dict):
+        for comp_id, costo in componentes_reales.items():
+            for c in servicio.componentes:
+                if c.id_componente == comp_id:
+                    c.costo_real = costo
+                    break
+    
+    def _limpiar_costos_componentes(self, servicio: Servicio):
+        for c in servicio.componentes:
+            c.costo_real = None
+    
+    def establecer_costo_real(self, servicio_id: int, costo_real: Decimal, componentes_reales: dict = None):
+        if self.estado == EstadoOrden.CANCELLED:
+            raise ErrorDominio(CodigoError.ORDER_CANCELLED, MENSAJE_ORDEN_CANCELADA)
         
-        if servicio is None:
-            raise ErrorDominio(
-                CodigoError.ORDER_NOT_FOUND,
-                f"Servicio con id {servicio_id} no encontrado en la orden",
-                contexto={"order_id": self.order_id, "servicio_id": servicio_id, "servicios_disponibles": len(self.servicios)}
-            )
+        servicio = self._buscar_servicio_por_id(servicio_id)
+        servicio.costo_real = costo_real
         
         if componentes_reales:
-            servicio.costo_real = costo_real
-            for comp_id, costo in componentes_reales.items():
-                for c in servicio.componentes:
-                    if c.id_componente == comp_id:
-                        c.costo_real = costo
-                        break
+            self._aplicar_costos_componentes(servicio, componentes_reales)
         else:
-            servicio.costo_real = costo_real
-            for c in servicio.componentes:
-                c.costo_real = None
+            self._limpiar_costos_componentes(servicio)
         
         self._recalcular_total_real()
 
@@ -134,7 +141,7 @@ class Orden:
 
     def intentar_completar(self):
         if self.estado == EstadoOrden.CANCELLED:
-            raise ErrorDominio(CodigoError.ORDER_CANCELLED, "La orden está cancelada")
+            raise ErrorDominio(CodigoError.ORDER_CANCELLED, MENSAJE_ORDEN_CANCELADA)
         
         if self.estado != EstadoOrden.IN_PROGRESS:
             raise ErrorDominio(
@@ -186,7 +193,7 @@ class Orden:
 
     def reautorizar(self, nuevo_monto: Decimal):
         if self.estado == EstadoOrden.CANCELLED:
-            raise ErrorDominio(CodigoError.ORDER_CANCELLED, "La orden está cancelada")
+            raise ErrorDominio(CodigoError.ORDER_CANCELLED, MENSAJE_ORDEN_CANCELADA)
         
         if self.estado != EstadoOrden.WAITING_FOR_APPROVAL:
             raise ErrorDominio(
@@ -214,7 +221,7 @@ class Orden:
 
     def entregar(self):
         if self.estado == EstadoOrden.CANCELLED:
-            raise ErrorDominio(CodigoError.ORDER_CANCELLED, "La orden está cancelada")
+            raise ErrorDominio(CodigoError.ORDER_CANCELLED, MENSAJE_ORDEN_CANCELADA)
         
         if self.estado != EstadoOrden.COMPLETED:
             raise ErrorDominio(

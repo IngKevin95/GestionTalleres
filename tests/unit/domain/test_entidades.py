@@ -1,6 +1,6 @@
 import pytest
 from decimal import Decimal
-from datetime import datetime
+from datetime import datetime, timezone
 from app.domain.entidades import Orden, Servicio, Componente, Cliente, Vehiculo
 from app.domain.entidades.event import Evento
 from app.domain.enums import EstadoOrden, CodigoError
@@ -43,7 +43,7 @@ def test_vehiculo_con_todos_los_campos():
 
 
 def test_orden_reautorizar():
-    orden = Orden("ORD-001", "Juan", "Auto", datetime.utcnow())
+    orden = Orden("ORD-001", "Juan", "Auto", datetime.now(timezone.utc))
     orden.estado = EstadoOrden.WAITING_FOR_APPROVAL
     orden.monto_autorizado = Decimal("1160.00")
     orden.total_real = Decimal("1300.00")
@@ -56,7 +56,7 @@ def test_orden_reautorizar():
 
 
 def test_orden_reautorizar_monto_insuficiente():
-    orden = Orden("ORD-001", "Juan", "Auto", datetime.utcnow())
+    orden = Orden("ORD-001", "Juan", "Auto", datetime.now(timezone.utc))
     orden.estado = EstadoOrden.WAITING_FOR_APPROVAL
     orden.monto_autorizado = Decimal("1160.00")
     orden.total_real = Decimal("1300.00")
@@ -69,7 +69,7 @@ def test_orden_reautorizar_monto_insuficiente():
 
 
 def test_orden_entregar():
-    orden = Orden("ORD-001", "Juan", "Auto", datetime.utcnow())
+    orden = Orden("ORD-001", "Juan", "Auto", datetime.now(timezone.utc))
     orden.estado = EstadoOrden.COMPLETED
     
     orden.entregar()
@@ -79,7 +79,7 @@ def test_orden_entregar():
 
 
 def test_orden_entregar_estado_invalido():
-    orden = Orden("ORD-001", "Juan", "Auto", datetime.utcnow())
+    orden = Orden("ORD-001", "Juan", "Auto", datetime.now(timezone.utc))
     orden.estado = EstadoOrden.IN_PROGRESS
     
     try:
@@ -90,7 +90,7 @@ def test_orden_entregar_estado_invalido():
 
 
 def test_orden_establecer_costo_real():
-    orden = Orden("ORD-001", "Juan", "Auto", datetime.utcnow())
+    orden = Orden("ORD-001", "Juan", "Auto", datetime.now(timezone.utc))
     servicio = Servicio("Servicio", Decimal("1000.00"))
     orden.servicios.append(servicio)
     
@@ -100,7 +100,7 @@ def test_orden_establecer_costo_real():
 
 
 def test_orden_establecer_costo_real_con_componentes():
-    orden = Orden("ORD-001", "Juan", "Auto", datetime.utcnow())
+    orden = Orden("ORD-001", "Juan", "Auto", datetime.now(timezone.utc))
     servicio = Servicio("Servicio", Decimal("1000.00"))
     componente = Componente("Componente", Decimal("200.00"))
     servicio.componentes.append(componente)
@@ -143,7 +143,7 @@ def test_servicio_calcular_costo_real_sin_costo_real():
 
 
 def test_orden_intentar_completar_exactamente_110():
-    orden = Orden("ORD-001", "Juan", "Auto", datetime.utcnow())
+    orden = Orden("ORD-001", "Juan", "Auto", datetime.now(timezone.utc))
     orden.estado = EstadoOrden.IN_PROGRESS
     orden.monto_autorizado = Decimal("1160.00")
     
@@ -157,7 +157,7 @@ def test_orden_intentar_completar_exactamente_110():
 
 
 def test_orden_intentar_completar_orden_cancelada():
-    orden = Orden("ORD-001", "Juan", "Auto", datetime.utcnow())
+    orden = Orden("ORD-001", "Juan", "Auto", datetime.now(timezone.utc))
     orden.estado = EstadoOrden.CANCELLED
     
     try:
@@ -168,7 +168,7 @@ def test_orden_intentar_completar_orden_cancelada():
 
 
 def test_orden_establecer_estado_en_proceso():
-    orden = Orden("ORD-001", "Juan", "Auto", datetime.utcnow())
+    orden = Orden("ORD-001", "Juan", "Auto", datetime.now(timezone.utc))
     orden.estado = EstadoOrden.AUTHORIZED
     orden.monto_autorizado = Decimal("1160.00")
     
@@ -179,7 +179,7 @@ def test_orden_establecer_estado_en_proceso():
 
 
 def test_orden_establecer_estado_en_proceso_estado_invalido():
-    orden = Orden("ORD-001", "Juan", "Auto", datetime.utcnow())
+    orden = Orden("ORD-001", "Juan", "Auto", datetime.now(timezone.utc))
     orden.estado = EstadoOrden.CREATED
     
     try:
@@ -200,7 +200,7 @@ def test_evento_crear():
 
 
 def test_orden_establecer_costo_real_servicio_no_existe():
-    orden = Orden("ORD-001", "Juan", "Auto", datetime.utcnow())
+    orden = Orden("ORD-001", "Juan", "Auto", datetime.now(timezone.utc))
     
     try:
         orden.establecer_costo_real(999, Decimal("1000.00"), {})
@@ -211,7 +211,7 @@ def test_orden_establecer_costo_real_servicio_no_existe():
 
 
 def test_orden_intentar_completar_no_in_progress():
-    orden = Orden("ORD-001", "Juan", "Auto", datetime.utcnow())
+    orden = Orden("ORD-001", "Juan", "Auto", datetime.now(timezone.utc))
     orden.estado = EstadoOrden.CREATED
     orden.monto_autorizado = Decimal("1160.00")
     
@@ -224,7 +224,7 @@ def test_orden_intentar_completar_no_in_progress():
 
 
 def test_orden_intentar_completar_sin_autorizacion():
-    orden = Orden("ORD-001", "Juan", "Auto", datetime.utcnow())
+    orden = Orden("ORD-001", "Juan", "Auto", datetime.now(timezone.utc))
     orden.estado = EstadoOrden.IN_PROGRESS
     orden.monto_autorizado = None
     
@@ -239,7 +239,7 @@ def test_orden_intentar_completar_sin_autorizacion():
 def test_orden_order_id_vacio_lanza_error():
     """Test que orden con order_id vacío lanza error."""
     with pytest.raises(ErrorDominio) as exc_info:
-        Orden("", "Juan", "ABC-123", datetime.utcnow())
+        Orden("", "Juan", "ABC-123", datetime.now(timezone.utc))
     assert exc_info.value.codigo == CodigoError.INVALID_OPERATION
     assert "order_id no puede estar vacío" in exc_info.value.mensaje
 
@@ -247,21 +247,21 @@ def test_orden_order_id_vacio_lanza_error():
 def test_orden_order_id_solo_espacios_lanza_error():
     """Test que orden con order_id solo espacios lanza error."""
     with pytest.raises(ErrorDominio) as exc_info:
-        Orden("   ", "Juan", "ABC-123", datetime.utcnow())
+        Orden("   ", "Juan", "ABC-123", datetime.now(timezone.utc))
     assert exc_info.value.codigo == CodigoError.INVALID_OPERATION
 
 
 def test_orden_order_id_formato_invalido_lanza_error():
     """Test que orden con order_id con formato inválido lanza error."""
     with pytest.raises(ErrorDominio) as exc_info:
-        Orden("ord-001", "Juan", "ABC-123", datetime.utcnow())
+        Orden("ord-001", "Juan", "ABC-123", datetime.now(timezone.utc))
     assert exc_info.value.codigo == CodigoError.INVALID_OPERATION
     assert "formato inválido" in exc_info.value.mensaje
 
 
 def test_orden_order_id_formato_valido():
     """Test que orden con order_id con formato válido se crea correctamente."""
-    orden = Orden("ORD-001", "Juan", "ABC-123", datetime.utcnow())
+    orden = Orden("ORD-001", "Juan", "ABC-123", datetime.now(timezone.utc))
     assert orden.order_id == "ORD-001"
 
 
@@ -305,7 +305,7 @@ def test_componente_costo_cero_valido():
     """Test que componente con costo cero es válido."""
     componente = Componente("Aceite", Decimal("0.00"))
     assert componente.costo_estimado == Decimal("0.00")
-    orden = Orden("ORD-001", "Juan", "Auto", datetime.utcnow())
+    orden = Orden("ORD-001", "Juan", "Auto", datetime.now(timezone.utc))
     orden.estado = EstadoOrden.IN_PROGRESS
     orden.monto_autorizado = None
     
