@@ -48,25 +48,25 @@ class EstablecerCostoReal(AccionBase):
         if not orden:
             raise ErrorDominio(CodigoError.ORDER_NOT_FOUND, f"Orden {dto.order_id} no existe")
         
-        servicio_id = self._obtener_servicio_id(orden, dto)
+        servicio_id, servicio = self._obtener_servicio_id_y_objeto(orden, dto)
         orden.establecer_costo_real(servicio_id, dto.costo_real, dto.componentes_reales)
         
-        if dto.completed is not None:
-            servicio = next((s for s in orden.servicios if s.id_servicio == servicio_id), None)
-            if servicio:
-                servicio.completado = dto.completed
+        if dto.completed is not None and servicio:
+            servicio.completado = dto.completed
         
         self.repo.guardar(orden)
         return orden_a_dto(orden)
     
-    def _obtener_servicio_id(self, orden, dto):
+    def _obtener_servicio_id_y_objeto(self, orden, dto):
         if dto.service_index is not None:
             if dto.service_index < 1 or dto.service_index > len(orden.servicios):
                 raise ErrorDominio(CodigoError.ORDER_NOT_FOUND, f"Índice {dto.service_index} inválido")
-            return orden.servicios[dto.service_index - 1].id_servicio
+            servicio = orden.servicios[dto.service_index - 1]
+            return servicio.id_servicio, servicio
         
         if not dto.servicio_id:
             raise ErrorDominio(CodigoError.ORDER_NOT_FOUND, "Falta service_id o service_index")
         
-        return dto.servicio_id
+        servicio = next((s for s in orden.servicios if s.id_servicio == dto.servicio_id), None)
+        return dto.servicio_id, servicio
 

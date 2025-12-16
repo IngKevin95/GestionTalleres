@@ -72,23 +72,33 @@ class RepositorioOrden(IRepositorioOrden):
         repo_evento.guardar_eventos(modelo_id, orden.eventos, modelo.eventos)
     
     def guardar(self, orden: Orden) -> None:
-        id_cliente, id_vehiculo = self._obtener_o_crear_cliente_vehiculo(orden)
-        
-        modelo = self.sesion.query(OrdenModel).filter(OrdenModel.order_id == orden.order_id).first()
-        
-        if modelo:
-            self._validar_ids_orden(orden, modelo)
-            self._actualizar_modelo(modelo, orden, id_cliente, id_vehiculo)
-            orden.id = modelo.id
-        else:
-            self._validar_id_nuevo(orden)
-            modelo = self._serializar(orden, id_cliente, id_vehiculo)
-            self.sesion.add(modelo)
-            self.sesion.flush()
-            orden.id = modelo.id
-        
-        self._guardar_entidades_relacionadas(modelo.id, orden, modelo)
-        self.sesion.commit()
+        try:
+            id_cliente, id_vehiculo = self._obtener_o_crear_cliente_vehiculo(orden)
+            
+            modelo = self.sesion.query(OrdenModel).filter(OrdenModel.order_id == orden.order_id).first()
+            
+            if modelo:
+                self._validar_ids_orden(orden, modelo)
+                try:
+                    self.sesion.refresh(modelo)
+                except Exception:
+                    modelo = self.sesion.query(OrdenModel).filter(OrdenModel.order_id == orden.order_id).first()
+                    if not modelo:
+                        raise ValueError(f"Orden {orden.order_id} no encontrada después de rollback")
+                self._actualizar_modelo(modelo, orden, id_cliente, id_vehiculo)
+                orden.id = modelo.id
+            else:
+                self._validar_id_nuevo(orden)
+                modelo = self._serializar(orden, id_cliente, id_vehiculo)
+                self.sesion.add(modelo)
+                self.sesion.flush()
+                orden.id = modelo.id
+            
+            self._guardar_entidades_relacionadas(modelo.id, orden, modelo)
+            self.sesion.commit()
+        except Exception:
+            self.sesion.rollback()
+            raise
         
     
     def _serializar(self, orden: Orden, id_cliente: int, id_vehiculo: int) -> OrdenModel:

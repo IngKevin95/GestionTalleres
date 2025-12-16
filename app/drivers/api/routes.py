@@ -171,6 +171,11 @@ def _procesar_comando_individual(
         
     except Exception:
         logger.error(f"Error procesando comando {idx}: {op}", exc_info=True)
+        try:
+            if hasattr(action_service.repo, 'sesion'):
+                action_service.repo.sesion.rollback()
+        except Exception:
+            pass
         raise
 
 
