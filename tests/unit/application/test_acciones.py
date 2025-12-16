@@ -604,27 +604,28 @@ def test_establecer_costo_real_indice_invalido():
         assert e.codigo == CodigoError.ORDER_NOT_FOUND
 
 
-def test_establecer_costo_real_indice_cero():
+def test_establecer_costo_real_indice_uno():
     repo = RepositorioOrdenMock()
     audit = AlmacenEventosMock()
     
     orden = Orden("ORD-001", "Juan", "Auto", datetime.utcnow())
     servicio = Servicio("Servicio", Decimal("1000.00"))
+    servicio.id_servicio = 1
     orden.servicios.append(servicio)
     repo.guardar(orden)
     
     accion = EstablecerCostoReal(repo, audit)
     dto = EstablecerCostoRealDTO(
         order_id="ORD-001",
-        service_index=0,
+        service_index=1,
         costo_real=Decimal("1200.00")
     )
     
-    try:
-        accion.ejecutar(dto)
-        assert False
-    except ErrorDominio as e:
-        assert e.codigo == CodigoError.ORDER_NOT_FOUND
+    resultado = accion.ejecutar(dto)
+    assert resultado is not None
+    
+    orden_actualizada = repo.obtener("ORD-001")
+    assert orden_actualizada.servicios[0].costo_real == Decimal("1200.00")
 
 
 def test_establecer_costo_real_sin_servicio_id_ni_indice():

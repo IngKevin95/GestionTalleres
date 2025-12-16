@@ -149,7 +149,7 @@ Content-Type: application/json
       "ts": "2025-03-01T09:20:00Z",
       "data": {
         "order_id": "R002",
-        "service_index": 0,
+        "service_index": 1,
         "real_cost": "15000.00",
         "completed": true
       }
@@ -227,7 +227,7 @@ Content-Type: application/json
       "ts": "2025-03-01T09:20:00Z",
       "data": {
         "order_id": "R003",
-        "service_index": 0,
+        "service_index": 1,
         "real_cost": "12650.00",
         "completed": true
       }
@@ -305,7 +305,7 @@ Content-Type: application/json
       "ts": "2025-03-01T09:20:00Z",
       "data": {
         "order_id": "R004",
-        "service_index": 0,
+        "service_index": 1,
         "real_cost": "15000.00",
         "completed": true
       }
@@ -727,7 +727,7 @@ Content-Type: application/json
       "ts": "2025-03-01T09:20:00Z",
       "data": {
         "order_id": "R011",
-        "service_index": 0,
+        "service_index": 1,
         "real_cost": "5200.00",
         "completed": true,
         "components_real": {
@@ -806,7 +806,7 @@ Content-Type: application/json
       "ts": "2025-03-01T09:20:00Z",
       "data": {
         "order_id": "R012",
-        "service_index": 0,
+        "service_index": 1,
         "real_cost": "950.00",
         "completed": true
       }
@@ -886,12 +886,12 @@ Content-Type: application/json
 # NOTA:
 # Para establecer el costo real de un servicio en una orden, es obligatorio enviar uno de los siguientes campos en el cuerpo de la petición:
 #   - service_id: el identificador único del servicio (si se conoce)
-#   - service_index: el índice del servicio dentro de la orden (usualmente 0 si solo hay un servicio)
+#   - service_index: el índice del servicio dentro de la orden (1-based: 1 = primer servicio, 2 = segundo, etc.)
 # Si se omiten ambos, el sistema responderá con: "Falta service_id o service_index".
 # Si se envía un índice inválido, responderá: "Índice X inválido".
 # Ejemplo válido para una orden con un solo servicio:
 # {
-#   "service_index": 0,
+#   "service_index": 1,
 #   "real_cost": "1750.00",
 #   "completed": true
 # }

@@ -60,7 +60,7 @@ class EstablecerCostoReal(AccionBase):
         return orden_a_dto(orden)
     
     def _obtener_servicio_id(self, orden, dto):
-        if dto.service_index:
+        if dto.service_index is not None:
             if dto.service_index < 1 or dto.service_index > len(orden.servicios):
                 raise ErrorDominio(CodigoError.ORDER_NOT_FOUND, f"Índice {dto.service_index} inválido")
             return orden.servicios[dto.service_index - 1].id_servicio
