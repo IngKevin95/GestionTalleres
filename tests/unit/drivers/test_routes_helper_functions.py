@@ -137,14 +137,9 @@ class TestRoutesEndpoints:
         assert callable(cancelar_orden)
     
     def test_listar_clientes_callable(self):
-        """Test que listar_clientes es callable"""
-        from app.drivers.api.routes import listar_clientes
-        assert callable(listar_clientes)
-    
-    def test_obtener_cliente_callable(self):
-        """Test que obtener_cliente es callable"""
-        from app.drivers.api.routes import obtener_cliente
-        assert callable(obtener_cliente)
+        """Test que obtener_cliente_por_criterio es callable"""
+        from app.drivers.api.routes import obtener_cliente_por_criterio
+        assert callable(obtener_cliente_por_criterio)
     
     def test_crear_cliente_callable(self):
         """Test que crear_cliente es callable"""

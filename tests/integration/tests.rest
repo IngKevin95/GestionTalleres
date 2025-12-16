@@ -805,11 +805,23 @@ Content-Type: application/json
 }
 
 ### Establecer costo real
+# NOTA:
+# Para establecer el costo real de un servicio en una orden, es obligatorio enviar uno de los siguientes campos en el cuerpo de la petición:
+#   - service_id: el identificador único del servicio (si se conoce)
+#   - service_index: el índice del servicio dentro de la orden (usualmente 0 si solo hay un servicio)
+# Si se omiten ambos, el sistema responderá con: "Falta service_id o service_index".
+# Si se envía un índice inválido, responderá: "Índice X inválido".
+# Ejemplo válido para una orden con un solo servicio:
+# {
+#   "service_index": 0,
+#   "real_cost": "1750.00",
+#   "completed": true
+# }
 POST {{baseUrl}}/orders/R012/set_real_cost
 Content-Type: application/json
 
 {
-  "service_index": 0,
+  "service_id": 12,
   "real_cost": "1750.00",
   "completed": true
 }
@@ -843,6 +855,142 @@ Content-Type: application/json
 ### Obtener todas las órdenes (si existe endpoint)
 GET {{baseUrl}}/orders
 
-### Health check detallado
-GET {{baseUrl}}/health
+### ============================================
+### GESTIÓN DE CLIENTES (CUSTOMERS)
+### ============================================
+
+### Listar todos los clientes
+GET {{baseUrl}}/customers
+
+### Obtener cliente por ID
+GET {{baseUrl}}/customers?id_cliente=1
+
+### Obtener cliente por identificación
+GET {{baseUrl}}/customers?identificacion=1234567890
+
+### Obtener cliente por nombre
+GET {{baseUrl}}/customers?nombre=ACME
+
+### Crear nuevo cliente
+POST {{baseUrl}}/customers
+Content-Type: application/json
+
+{
+  "nombre": "Nuevo Cliente",
+  "identificacion": "9876543210",
+  "correo": "cliente@ejemplo.com",
+  "direccion": "Calle Principal 123",
+  "celular": "3001234567"
+}
+
+### Actualizar cliente por ID
+PATCH {{baseUrl}}/customers?id_cliente=1
+Content-Type: application/json
+
+{
+  "nombre": "ACME Actualizado",
+  "correo": "acme@actualizado.com",
+  "celular": "3109999999"
+}
+
+### Actualizar cliente por identificación
+PATCH {{baseUrl}}/customers?identificacion=1234567890
+Content-Type: application/json
+
+{
+  "direccion": "Nueva Dirección 456",
+  "correo": "nuevo@correo.com"
+}
+
+### Obtener vehículos de un cliente específico
+GET {{baseUrl}}/customers/vehicles?id_cliente=1
+
+### Obtener vehículos de cliente por identificación
+GET {{baseUrl}}/customers/vehicles?identificacion=1234567890
+
+### ============================================
+### GESTIÓN DE VEHÍCULOS (VEHICLES)
+### ============================================
+
+### Listar todos los vehículos
+GET {{baseUrl}}/vehicles
+
+### Obtener vehículo por ID
+GET {{baseUrl}}/vehicles?id_vehiculo=1
+
+### Obtener vehículo por placa
+GET {{baseUrl}}/vehicles?placa=ABC-123
+
+### Crear nuevo vehículo
+POST {{baseUrl}}/vehicles
+Content-Type: application/json
+
+{
+  "placa": "XYZ-999",
+  "marca": "Toyota",
+  "modelo": "Corolla",
+  "anio": 2023,
+  "kilometraje": 5000,
+  "customer": {
+    "nombre": "ACME"
+  }
+}
+
+### Crear vehículo con cliente por ID
+POST {{baseUrl}}/vehicles
+Content-Type: application/json
+
+{
+  "placa": "DEF-888",
+  "marca": "Honda",
+  "modelo": "Civic",
+  "anio": 2022,
+  "kilometraje": 15000,
+  "customer": {
+    "id_cliente": 1
+  }
+}
+
+### Actualizar vehículo por ID
+PATCH {{baseUrl}}/vehicles?id_vehiculo=1
+Content-Type: application/json
+
+{
+  "marca": "Toyota Actualizado",
+  "kilometraje": 25000
+}
+
+### Actualizar vehículo por placa
+PATCH {{baseUrl}}/vehicles?placa=ABC-123
+Content-Type: application/json
+
+{
+  "marca": "Nissan",
+  "modelo": "Sentra",
+  "anio": 2023,
+  "kilometraje": 8000
+}
+
+### Actualizar vehículo por ID en path
+PATCH {{baseUrl}}/vehicles/1
+Content-Type: application/json
+
+{
+  "marca": "Mazda",
+  "modelo": "Mazda3",
+  "anio": 2024,
+  "kilometraje": 3000
+}
+
+### Actualizar vehículo con cambio de cliente
+PATCH {{baseUrl}}/vehicles?placa=ABC-123
+Content-Type: application/json
+
+{
+  "customer": {
+    "nombre": "ACME"
+  }
+}
+
+
 

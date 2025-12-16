@@ -1,5 +1,6 @@
 from decimal import Decimal
 from datetime import datetime
+import pytest
 from app.drivers.api.schemas import (
     HealthResponse,
     CommandsRequest,
@@ -195,4 +196,117 @@ def test_list_vehiculos_response():
     )
     response = ListVehiculosResponse(vehiculos=[vehiculo1, vehiculo2])
     assert len(response.vehiculos) == 2
+
+
+def test_create_order_request_validar_campo_vacio():
+    """Test validación de campos vacíos en CreateOrderRequest"""
+    from pydantic import ValidationError
+    
+    with pytest.raises(ValidationError) as exc_info:
+        CreateOrderRequest(
+            order_id="ORD-001",
+            customer="",  # Campo vacío
+            vehicle="Auto-123",
+            ts=datetime.utcnow()
+        )
+    error_msg = str(exc_info.value).lower()
+    assert "campo requerido" in error_msg or "at least 1 character" in error_msg
+
+
+def test_create_order_request_validar_campo_solo_espacios():
+    """Test validación de campos con solo espacios"""
+    from pydantic import ValidationError
+    
+    with pytest.raises(ValidationError) as exc_info:
+        CreateOrderRequest(
+            order_id="ORD-001",
+            customer="Cliente",
+            vehicle="   ",  # Solo espacios
+            ts=datetime.utcnow()
+        )
+    assert exc_info.value is not None
+
+
+def test_create_order_request_validar_ts_datetime():
+    """Test validación de timestamp como datetime"""
+    request = CreateOrderRequest(
+        order_id="ORD-001",
+        customer="Cliente Test",
+        vehicle="Auto-123",
+        ts=datetime(2023, 12, 15, 10, 30, 0)
+    )
+    # El validator convierte datetime a isoformat
+    assert isinstance(request.ts, str)
+
+
+def test_create_order_request_validar_ts_string_vacio():
+    """Test validación de timestamp como string vacío"""
+    request = CreateOrderRequest(
+        order_id="ORD-001",
+        customer="Cliente Test",
+        vehicle="Auto-123",
+        ts=""
+    )
+    # String vacío se convierte en None
+    assert request.ts is None
+
+
+def test_create_order_request_validar_ts_none():
+    """Test validación de timestamp None"""
+    request = CreateOrderRequest(
+        order_id="ORD-001",
+        customer="Cliente Test",
+        vehicle="Auto-123",
+        ts=None
+    )
+    assert request.ts is None
+
+
+def test_create_order_request_order_id_con_espacios():
+    """Test order_id con espacios se trim"""
+    request = CreateOrderRequest(
+        order_id="  ORD-123  ",
+        customer="Cliente",
+        vehicle="Auto",
+        ts=datetime.utcnow()
+    )
+    assert request.order_id == "ORD-123"
+
+
+def test_create_order_request_validar_ts_string_con_contenido():
+    """Test validar_ts con string que tiene contenido"""
+    request = CreateOrderRequest(
+        order_id="ORD-001",
+        customer="Cliente",
+        vehicle="Auto",
+        ts="2023-12-15T10:30:00"
+    )
+    assert request.ts == "2023-12-15T10:30:00"
+
+
+def test_update_vehiculo_request_normalizar_customer_none():
+    """Test normalizar_customer con None"""
+    request = UpdateVehiculoRequest(customer=None)
+    assert request.customer is None
+
+
+def test_update_vehiculo_request_normalizar_customer_string():
+    """Test normalizar_customer con string"""
+    request = UpdateVehiculoRequest(customer="Cliente Test")
+    assert request.customer.nombre == "Cliente Test"
+
+
+def test_update_vehiculo_request_normalizar_customer_dict():
+    """Test normalizar_customer con dict"""
+    request = UpdateVehiculoRequest(customer={"nombre": "Cliente Dict", "identificacion": "123"})
+    assert request.customer.nombre == "Cliente Dict"
+    assert request.customer.identificacion == "123"
+
+
+def test_update_vehiculo_request_normalizar_customer_objeto():
+    """Test normalizar_customer con objeto CustomerIdentifier"""
+    from app.drivers.api.schemas import CustomerIdentifier
+    customer_obj = CustomerIdentifier(nombre="Cliente Obj")
+    request = UpdateVehiculoRequest(customer=customer_obj)
+    assert request.customer.nombre == "Cliente Obj"
 

@@ -1,12 +1,13 @@
 """Tests para modelos SQLAlchemy de infraestructura."""
 import pytest
+from datetime import datetime
 from app.infrastructure.models.orden_model import OrdenModel
 from app.infrastructure.models.cliente_model import ClienteModel
 from app.infrastructure.models.vehiculo_model import VehiculoModel
 from app.infrastructure.models.servicio_model import ServicioModel
 from app.infrastructure.models.componente_model import ComponenteModel
 from app.infrastructure.models.evento_model import EventoModel
-from app.infrastructure.models.base import Base
+from app.infrastructure.models.base import Base, fecha_creacion_default
 
 
 class TestBaseModel:
@@ -15,6 +16,11 @@ class TestBaseModel:
     def test_base_import(self):
         """Test importar Base."""
         assert Base is not None
+    
+    def test_fecha_creacion_default(self):
+        """Test fecha_creacion_default devuelve datetime."""
+        fecha = fecha_creacion_default()
+        assert isinstance(fecha, datetime)
 
 
 class TestOrdenModel:

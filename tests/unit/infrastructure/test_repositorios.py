@@ -688,6 +688,36 @@ def test_repositorio_cliente_guardar_nuevo_sin_id():
     sesion.commit.assert_called_once()
 
 
+def test_repositorio_cliente_obtener_con_excepcion():
+    """Test obtener cuando query lanza excepción"""
+    sesion = Mock(spec=Session)
+    mock_query = Mock()
+    mock_query.filter.side_effect = Exception("DB error")
+    sesion.query.return_value = mock_query
+    
+    repo = RepositorioClienteSQL(sesion)
+    resultado = repo.obtener(999)
+    
+    assert resultado is None
+
+
+def test_repositorio_cliente_guardar_con_rollback():
+    """Test guardar con error y rollback"""
+    sesion = Mock(spec=Session)
+    sesion.commit.side_effect = Exception("Commit error")
+    
+    cliente = Cliente(nombre="Test")
+    cliente.id_cliente = 1
+    
+    repo = RepositorioClienteSQL(sesion)
+    
+    try:
+        repo.guardar(cliente)
+        assert False, "Debería lanzar excepción"
+    except Exception:
+        sesion.rollback.assert_called()
+
+
 def test_repositorio_cliente_guardar_actualizar_existente():
     sesion = Mock(spec=Session)
     
@@ -1183,3 +1213,304 @@ def test_repositorio_vehiculo_buscar_o_crear_placa_existente_mismo_cliente_con_n
     assert exc_info.value.codigo == CodigoError.PLACA_ASOCIADA_OTRO_CLIENTE
     assert "Pedro García" in str(exc_info.value.mensaje)
     assert "ID: 5" in str(exc_info.value.mensaje)
+
+
+def test_repositorio_vehiculo_obtener_existente():
+    """Test obtener vehiculo por ID existente"""
+    sesion_mock = Mock()
+    
+    modelo_mock = Mock()
+    modelo_mock.id_vehiculo = 10
+    modelo_mock.placa = "XYZ-999"
+    modelo_mock.id_cliente = 3
+    modelo_mock.marca = "Nissan"
+    modelo_mock.modelo = "Sentra"
+    modelo_mock.anio = 2021
+    modelo_mock.kilometraje = 30000
+    
+    query_mock = Mock()
+    query_mock.filter().first.return_value = modelo_mock
+    sesion_mock.query.return_value = query_mock
+    
+    repo = RepositorioVehiculoSQL(sesion_mock)
+    vehiculo = repo.obtener(10)
+    
+    assert vehiculo is not None
+    assert vehiculo.id_vehiculo == 10
+    assert vehiculo.placa == "XYZ-999"
+    assert vehiculo.marca == "Nissan"
+
+
+def test_repositorio_vehiculo_obtener_no_existe():
+    """Test obtener vehiculo por ID que no existe"""
+    sesion_mock = Mock()
+    
+    query_mock = Mock()
+    query_mock.filter().first.return_value = None
+    sesion_mock.query.return_value = query_mock
+    
+    repo = RepositorioVehiculoSQL(sesion_mock)
+    vehiculo = repo.obtener(999)
+    
+    assert vehiculo is None
+
+
+def test_repositorio_cliente_buscar_por_identificacion_con_excepcion():
+    """Test buscar por identificación cuando ocurre excepción en query"""
+    sesion_mock = Mock()
+    sesion_mock.query.side_effect = Exception("DB Error")
+    
+    repo = RepositorioClienteSQL(sesion_mock)
+    cliente = repo.buscar_por_identificacion("123456")
+    
+    assert cliente is None
+
+
+def test_repositorio_cliente_buscar_por_nombre_con_excepcion():
+    """Test buscar por nombre cuando ocurre excepción en query"""
+    sesion_mock = Mock()
+    sesion_mock.query.side_effect = Exception("DB Error")
+    
+    repo = RepositorioClienteSQL(sesion_mock)
+    cliente = repo.buscar_por_nombre("Juan Pérez")
+    
+    assert cliente is None
+
+
+def test_repositorio_vehiculo_buscar_o_crear_integrity_con_cliente_diferente():
+    """Test IntegrityError en buscar_o_crear cuando vehículo existe con diferente cliente"""
+    from sqlalchemy.exc import IntegrityError
+    
+    sesion_mock = Mock()
+    mock_cliente = Mock()
+    mock_cliente.nombre = "Cliente Original"
+    
+    mock_vehiculo_existente = Mock()
+    mock_vehiculo_existente.placa = "ABC-123"
+    mock_vehiculo_existente.id_cliente = 5  # Cliente diferente
+    mock_vehiculo_existente.id_vehiculo = 10
+    mock_vehiculo_existente.marca = "Toyota"
+    mock_vehiculo_existente.modelo = "Corolla"
+    mock_vehiculo_existente.anio = 2020
+    mock_vehiculo_existente.kilometraje = 50000
+    mock_vehiculo_existente.cliente = mock_cliente
+    
+    def query_side_effect(*args):
+        mock_query = Mock()
+        if args and hasattr(args[0], '__name__') and args[0].__name__ == 'VehiculoModel':
+            # Después del rollback, devuelve el vehículo existente
+            mock_query.filter().first.return_value = mock_vehiculo_existente
+        return mock_query
+    
+    sesion_mock.query.side_effect = query_side_effect
+    
+    # Simular IntegrityError con mensaje de placa unique
+    orig_error = Mock()
+    orig_error.__str__ = Mock(return_value="UNIQUE constraint failed: placa")
+    integrity_error = IntegrityError("statement", {}, orig_error)
+    sesion_mock.flush.side_effect = integrity_error
+    
+    repo = RepositorioVehiculoSQL(sesion_mock)
+    
+    try:
+        repo.buscar_o_crear_por_placa("ABC-123", id_cliente=1, marca="Honda", modelo="Civic")
+        assert False, "Debería lanzar ErrorDominio"
+    except ErrorDominio as e:
+        assert CodigoError.PLACA_ASOCIADA_OTRO_CLIENTE == e.codigo
+
+
+def test_repositorio_vehiculo_buscar_o_crear_generic_integrity_error():
+    """Test IntegrityError genérico (no relacionado con placa) en buscar_o_crear"""
+    from sqlalchemy.exc import IntegrityError
+    
+    sesion_mock = Mock()
+    
+    # Mockear query para que buscar_por_placa devuelva None
+    query_mock = Mock()
+    query_mock.filter().first.return_value = None
+    sesion_mock.query.return_value = query_mock
+    
+    # Simular IntegrityError sin mensaje de placa/unique
+    orig_error = Mock()
+    orig_error.__str__ = Mock(return_value="OTHER constraint failed")
+    integrity_error = IntegrityError("statement", {}, orig_error)
+    sesion_mock.flush.side_effect = integrity_error
+    
+    repo = RepositorioVehiculoSQL(sesion_mock)
+    
+    try:
+        repo.buscar_o_crear_por_placa("XYZ-999", id_cliente=1, marca="Ford")
+        assert False, "Debería relanzar IntegrityError"
+    except IntegrityError:
+        sesion_mock.rollback.assert_called()
+
+
+def test_repositorio_cliente_buscar_o_crear_por_criterio_sin_id_cliente():
+    """Test buscar_o_crear_por_criterio cuando se crea nuevo cliente"""
+    sesion_mock = Mock()
+    
+    # Mock query que devuelve None (no existe)
+    query_mock = Mock()
+    query_mock.filter().first.return_value = None
+    sesion_mock.query.return_value = query_mock
+    
+    # Mock flush para asignar ID
+    def side_effect_flush():
+        sesion_mock.add.call_args[0][0].id_cliente = 100
+    sesion_mock.flush.side_effect = side_effect_flush
+    
+    repo = RepositorioClienteSQL(sesion_mock)
+    cliente = repo.buscar_o_crear_por_criterio(nombre="Nuevo Cliente")
+    
+    assert cliente.nombre == "Nuevo Cliente"
+    assert cliente.id_cliente == 100
+    sesion_mock.add.assert_called()
+    sesion_mock.commit.assert_called()
+
+
+def test_repositorio_cliente_guardar_existente_con_actualizacion():
+    """Test guardar cliente existente con actualización de datos"""
+    sesion_mock = Mock()
+    
+    modelo_existente = Mock()
+    modelo_existente.id_cliente = 5
+    modelo_existente.nombre = "Cliente Viejo"
+    
+    query_mock = Mock()
+    query_mock.filter().first.return_value = modelo_existente
+    sesion_mock.query.return_value = query_mock
+    
+    cliente = Cliente(nombre="Cliente Actualizado", identificacion="123")
+    cliente.id_cliente = 5
+    
+    repo = RepositorioClienteSQL(sesion_mock)
+    resultado = repo.guardar(cliente)
+    
+    assert modelo_existente.nombre == "Cliente Actualizado"
+    sesion_mock.commit.assert_called()
+
+
+def test_repositorio_vehiculo_buscar_o_crear_integrity_sin_cliente():
+    """Test IntegrityError cuando modelo_existente.cliente es None"""
+    from sqlalchemy.exc import IntegrityError
+    
+    sesion_mock = Mock()
+    
+    mock_vehiculo_sin_cliente = Mock()
+    mock_vehiculo_sin_cliente.placa = "ABC-999"
+    mock_vehiculo_sin_cliente.id_cliente = 10
+    mock_vehiculo_sin_cliente.id_vehiculo = 50
+    mock_vehiculo_sin_cliente.marca = "Ford"
+    mock_vehiculo_sin_cliente.modelo = "Focus"
+    mock_vehiculo_sin_cliente.anio = 2018
+    mock_vehiculo_sin_cliente.kilometraje = 80000
+    mock_vehiculo_sin_cliente.cliente = None  # Sin cliente
+    
+    def query_side_effect(*args):
+        mock_query = Mock()
+        if args and hasattr(args[0], '__name__') and args[0].__name__ == 'VehiculoModel':
+            mock_query.filter().first.return_value = mock_vehiculo_sin_cliente
+        return mock_query
+    
+    sesion_mock.query.side_effect = query_side_effect
+    
+    orig_error = Mock()
+    orig_error.__str__ = Mock(return_value="UNIQUE constraint: placa")
+    integrity_error = IntegrityError("statement", {}, orig_error)
+    sesion_mock.flush.side_effect = integrity_error
+    
+    repo = RepositorioVehiculoSQL(sesion_mock)
+    
+    try:
+        repo.buscar_o_crear_por_placa("ABC-999", id_cliente=1, marca="Toyota")
+        assert False, "Debería lanzar ErrorDominio"
+    except ErrorDominio as e:
+        # Verificar que se lanzó el error correcto
+        assert CodigoError.PLACA_ASOCIADA_OTRO_CLIENTE == e.codigo
+
+
+def test_repositorio_vehiculo_listar_vacio():
+    """Test listar cuando no hay vehículos"""
+    sesion_mock = Mock()
+    query_mock = Mock()
+    query_mock.all.return_value = []
+    sesion_mock.query.return_value = query_mock
+    
+    repo = RepositorioVehiculoSQL(sesion_mock)
+    vehiculos = repo.listar()
+    
+    assert len(vehiculos) == 0
+
+
+def test_repositorio_cliente_listar_por_identificacion():
+    """Test listar filtrando por identificacion"""
+    sesion_mock = Mock()
+    
+    modelo_mock = Mock()
+    modelo_mock.id_cliente = 1
+    modelo_mock.nombre = "Cliente Test"
+    modelo_mock.identificacion = "123456"
+    modelo_mock.correo = "test@test.com"
+    modelo_mock.direccion = "Calle 123"
+    modelo_mock.celular = "3001234567"
+    
+    sesion_mock.query().filter().first.return_value = modelo_mock
+    
+    repo = RepositorioClienteSQL(sesion_mock)
+    cliente = repo.buscar_por_identificacion("123456")
+    
+    assert cliente is not None
+    assert cliente.identificacion == "123456"
+    assert cliente.nombre == "Cliente Test"
+
+
+def test_repositorio_cliente_buscar_o_crear_excepcion_rollback():
+    """Test que buscar_o_crear hace rollback en caso de excepción"""
+    sesion = Mock(spec=Session)
+    repo = RepositorioClienteSQL(sesion)
+    sesion.query().filter().first.return_value = None
+    sesion.flush.side_effect = Exception("Database error")
+    
+    with pytest.raises(Exception):
+        repo.buscar_o_crear_por_nombre("Cliente Test")
+    
+    sesion.rollback.assert_called_once()
+
+
+def test_repositorio_cliente_buscar_o_crear_criterio_excepcion():
+    """Test que buscar_o_crear_por_criterio hace rollback en excepción"""
+    sesion = Mock(spec=Session)
+    repo = RepositorioClienteSQL(sesion)
+    sesion.query().filter().first.return_value = None
+    sesion.flush.side_effect = Exception("Error")
+    
+    with pytest.raises(Exception):
+        repo.buscar_o_crear_por_criterio(nombre="Test")
+    
+    sesion.rollback.assert_called()
+
+
+def test_repositorio_vehiculo_buscar_por_criterio_id_none_placa_none():
+    """Test buscar_por_criterio retorna None cuando ambos parámetros son None"""
+    sesion = Mock(spec=Session)
+    repo = RepositorioVehiculoSQL(sesion)
+    resultado = repo.buscar_por_criterio(id_vehiculo=None, placa=None)
+    assert resultado is None
+
+
+def test_repositorio_vehiculo_integrity_sin_unique():
+    """Test IntegrityError que no es por unique constraint"""
+    from sqlalchemy.exc import IntegrityError
+    sesion = Mock(spec=Session)
+    repo = RepositorioVehiculoSQL(sesion)
+    sesion.query().filter().first.return_value = None
+    
+    error_orig = Mock()
+    error_orig.__str__ = Mock(return_value="foreign key violation")
+    error = IntegrityError("statement", "params", error_orig)
+    sesion.flush.side_effect = error
+    
+    with pytest.raises(IntegrityError):
+        repo.buscar_o_crear_por_placa("ABC123", 1)
+    
+    sesion.rollback.assert_called_once()
