@@ -5,7 +5,7 @@ Verifica que los repositorios interactúen correctamente con la base de datos
 para gestionar órdenes, clientes, vehículos, servicios y eventos del taller.
 """
 from decimal import Decimal
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import Mock, MagicMock
 import pytest
 from sqlalchemy.orm import Session
@@ -156,25 +156,10 @@ def test_cliente_nuevo_se_crea_en_base_datos():
 #     sesion.add.assert_not_called()
 
 
-# def test_repositorio_vehiculo_buscar_o_crear_nuevo():
-#     sesion = Mock(spec=Session)
-#     
-#     query_mock = Mock()
-#     query_mock.filter.return_value.first.return_value = None
-#     sesion.query.return_value = query_mock
-#     
-#     repo = RepositorioVehiculoSQL(sesion)
-#     vehiculo = repo.buscar_o_crear_por_descripcion("Auto", "CLI-001")
-#     
-#     assert vehiculo is not None
-#     sesion.add.assert_called_once()
-#     sesion.flush.assert_called_once()
-
-
 def test_repositorio_cliente_guardar():
     session_mock = Mock(spec=Session)
     repo = RepositorioClienteSQL(session_mock)
-    assert repo is not None
+    assert repo.sesion == session_mock
 
 
 def test_repositorio_vehiculo_tiene_metodos():
@@ -194,7 +179,6 @@ def test_repositorio_orden_tiene_repos_internos():
 def test_repositorio_servicio_creation():
     session_mock = Mock(spec=Session)
     repo = RepositorioServicioSQL(session_mock)
-    assert repo is not None
     assert repo.sesion == session_mock
 
 
@@ -216,7 +200,7 @@ def test_repositorio_orden_deserializar():
     modelo_mock.monto_autorizado = None
     modelo_mock.version_autorizacion = 0
     modelo_mock.total_real = Decimal('0')
-    modelo_mock.fecha_creacion = datetime.utcnow()
+    modelo_mock.fecha_creacion = datetime.now(timezone.utc)
     modelo_mock.fecha_cancelacion = None
     modelo_mock.servicios = []
     modelo_mock.eventos = []
@@ -254,7 +238,7 @@ def test_repositorio_servicio_guardar():
 
 def test_repositorio_evento_guardar():
     sesion = Mock(spec=Session)
-    evento = Evento("CREATED", datetime.utcnow(), {})
+    evento = Evento("CREATED", datetime.now(timezone.utc), {})
     
     query_mock = Mock()
     query_mock.filter.return_value.all.return_value = []
@@ -292,7 +276,7 @@ def test_repositorio_orden_guardar_nueva():
     repo.repo_servicio = repo_servicio
     repo.repo_evento = repo_evento
     
-    orden = Orden("ORD-001", "Juan", "ABC-123", datetime.utcnow())
+    orden = Orden("ORD-001", "Juan", "ABC-123", datetime.now(timezone.utc))
     repo.guardar(orden)
     
     sesion.add.assert_called_once()
@@ -332,7 +316,7 @@ def test_repositorio_orden_guardar_existente():
     repo.repo_servicio = repo_servicio
     repo.repo_evento = repo_evento
     
-    orden = Orden("ORD-001", "Juan", "ABC-123", datetime.utcnow())
+    orden = Orden("ORD-001", "Juan", "ABC-123", datetime.now(timezone.utc))
     orden.id = 1
     repo.guardar(orden)
     
@@ -370,7 +354,7 @@ def test_repositorio_orden_guardar_con_id_diferente():
     repo.repo_servicio = repo_servicio
     repo.repo_evento = repo_evento
     
-    orden = Orden("ORD-001", "Juan", "ABC-123", datetime.utcnow())
+    orden = Orden("ORD-001", "Juan", "ABC-123", datetime.now(timezone.utc))
     orden.id = 1
     
     try:
@@ -412,7 +396,7 @@ def test_repositorio_orden_guardar_nueva_con_id():
     repo.repo_servicio = repo_servicio
     repo.repo_evento = repo_evento
     
-    orden = Orden("ORD-001", "Juan", "ABC-123", datetime.utcnow())
+    orden = Orden("ORD-001", "Juan", "ABC-123", datetime.now(timezone.utc))
     orden.id = 999
     
     try:
@@ -432,7 +416,7 @@ def test_repositorio_orden_deserializar_completo():
     modelo_mock.monto_autorizado = "1000.00"
     modelo_mock.version_autorizacion = 1
     modelo_mock.total_real = "1200.00"
-    modelo_mock.fecha_creacion = datetime.utcnow()
+    modelo_mock.fecha_creacion = datetime.now(timezone.utc)
     modelo_mock.fecha_cancelacion = None
     
     cliente_mock = Mock()
@@ -600,10 +584,10 @@ def test_repositorio_evento_actualizar_existente():
     
     evento_existente = Mock()
     evento_existente.tipo = "OLD"
-    evento_existente.timestamp = datetime.utcnow()
+    evento_existente.timestamp = datetime.now(timezone.utc)
     evento_existente.metadatos_json = None
     
-    evento = Evento("CREATED", datetime.utcnow(), {"key": "value"})
+    evento = Evento("CREATED", datetime.now(timezone.utc), {"key": "value"})
     
     repo = RepositorioEventoSQL(sesion)
     repo.guardar_eventos(1, [evento], [evento_existente])
@@ -617,7 +601,7 @@ def test_repositorio_evento_eliminar_sobrantes():
     evento_existente1 = Mock()
     evento_existente2 = Mock()
     
-    evento = Evento("CREATED", datetime.utcnow(), {})
+    evento = Evento("CREATED", datetime.now(timezone.utc), {})
     
     repo = RepositorioEventoSQL(sesion)
     repo.guardar_eventos(1, [evento], [evento_existente1, evento_existente2])
@@ -1465,7 +1449,7 @@ def test_repositorio_cliente_guardar_existente_con_actualizacion():
     cliente.id_cliente = 5
     
     repo = RepositorioClienteSQL(sesion_mock)
-    resultado = repo.guardar(cliente)
+    repo.guardar(cliente)
     
     assert modelo_existente.nombre == "Cliente Actualizado"
     sesion_mock.commit.assert_called()
@@ -1595,3 +1579,5 @@ def test_repositorio_vehiculo_integrity_sin_unique():
         repo.buscar_o_crear_por_placa("ABC123", 1)
     
     sesion.rollback.assert_called_once()
+
+

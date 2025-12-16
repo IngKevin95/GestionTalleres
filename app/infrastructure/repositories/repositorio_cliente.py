@@ -101,7 +101,7 @@ class RepositorioClienteSQL:
             cliente.id_cliente = modelo.id_cliente
             self.sesion.commit()
             return cliente
-        except Exception as e:
+        except Exception:
             self.sesion.rollback()
             raise
     

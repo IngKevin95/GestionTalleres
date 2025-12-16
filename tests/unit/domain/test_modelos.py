@@ -1,5 +1,5 @@
 from decimal import Decimal
-from datetime import datetime
+from datetime import datetime, timezone
 import pytest
 from app.domain.entidades import Orden, Servicio, Componente
 from app.domain.enums import EstadoOrden, CodigoError
@@ -7,21 +7,21 @@ from app.domain.exceptions import ErrorDominio
 
 
 def test_crear_orden():
-    o = Orden("ORD-001", "Juan Pérez", "Toyota Corolla", datetime.utcnow())
+    o = Orden("ORD-001", "Juan Pérez", "Toyota Corolla", datetime.now(timezone.utc))
     assert o.estado == EstadoOrden.CREATED
     assert len(o.servicios) == 0
     assert o.version_autorizacion == 0
 
 
 def test_agregar_servicio():
-    o = Orden("ORD-001", "Juan", "Auto", datetime.utcnow())
+    o = Orden("ORD-001", "Juan", "Auto", datetime.now(timezone.utc))
     serv = Servicio("Cambio de aceite", Decimal("500.00"))
     o.agregar_servicio(serv)
     assert len(o.servicios) == 1
 
 
 def test_no_agregar_servicio_despues_autorizar():
-    o = Orden("ORD-001", "Juan", "Auto", datetime.utcnow())
+    o = Orden("ORD-001", "Juan", "Auto", datetime.now(timezone.utc))
     o.estado = EstadoOrden.AUTHORIZED
     serv = Servicio("Servicio", Decimal("100"))
     
@@ -33,7 +33,7 @@ def test_no_agregar_servicio_despues_autorizar():
 
 
 def test_establecer_estado_diagnosticado():
-    o = Orden("ORD-001", "Juan", "Auto", datetime.utcnow())
+    o = Orden("ORD-001", "Juan", "Auto", datetime.now(timezone.utc))
     o.establecer_estado_diagnosticado()
     assert o.estado == EstadoOrden.DIAGNOSED
     assert len(o.eventos) == 1
@@ -41,7 +41,7 @@ def test_establecer_estado_diagnosticado():
 
 
 def test_autorizar_sin_servicios():
-    o = Orden("ORD-001", "Juan", "Auto", datetime.utcnow())
+    o = Orden("ORD-001", "Juan", "Auto", datetime.now(timezone.utc))
     o.estado = EstadoOrden.DIAGNOSED
     
     try:
@@ -52,7 +52,7 @@ def test_autorizar_sin_servicios():
 
 
 def test_autorizar():
-    o = Orden("ORD-001", "Juan", "Auto", datetime.utcnow())
+    o = Orden("ORD-001", "Juan", "Auto", datetime.now(timezone.utc))
     serv = Servicio("Servicio", Decimal("1000"))
     o.agregar_servicio(serv)
     o.estado = EstadoOrden.DIAGNOSED
@@ -64,7 +64,7 @@ def test_autorizar():
 
 
 def test_intentar_completar_excede_110():
-    o = Orden("ORD-001", "Juan", "Auto", datetime.utcnow())
+    o = Orden("ORD-001", "Juan", "Auto", datetime.now(timezone.utc))
     serv = Servicio("Servicio", Decimal("1000"))
     o.agregar_servicio(serv)
     o.estado = EstadoOrden.IN_PROGRESS
@@ -82,14 +82,14 @@ def test_intentar_completar_excede_110():
 
 
 def test_cancelar_orden():
-    o = Orden("ORD-001", "Juan", "Auto", datetime.utcnow())
+    o = Orden("ORD-001", "Juan", "Auto", datetime.now(timezone.utc))
     o.cancelar("Cliente canceló")
     assert o.estado == EstadoOrden.CANCELLED
     assert o.fecha_cancelacion is not None
 
 
 def test_no_operaciones_despues_cancelar():
-    o = Orden("ORD-001", "Juan", "Auto", datetime.utcnow())
+    o = Orden("ORD-001", "Juan", "Auto", datetime.now(timezone.utc))
     o.cancelar("Cancelado")
     
     try:
@@ -100,13 +100,13 @@ def test_no_operaciones_despues_cancelar():
 
 
 def test_orden_con_monto_autorizado():
-    orden = Orden("ORD-001", "Cliente", "Vehiculo", datetime.utcnow())
+    orden = Orden("ORD-001", "Cliente", "Vehiculo", datetime.now(timezone.utc))
     orden.monto_autorizado = Decimal("100000")
     assert orden.monto_autorizado == Decimal("100000")
 
 
 def test_orden_con_version_autorizacion():
-    orden = Orden("ORD-001", "Cliente", "Vehiculo", datetime.utcnow())
+    orden = Orden("ORD-001", "Cliente", "Vehiculo", datetime.now(timezone.utc))
     orden.version_autorizacion = 2
     assert orden.version_autorizacion == 2
 
@@ -133,7 +133,7 @@ def test_evento_con_metadatos():
     from app.domain.entidades.event import Evento
     evento = Evento(
         tipo="ORDEN_CREADA",
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.now(timezone.utc),
         metadatos={"usuario": "admin"}
     )
     assert evento.metadatos == {"usuario": "admin"}
@@ -159,7 +159,7 @@ def test_import_service_model():
 def test_orden_models_crear_orden():
     try:
         from app.domain.models.order import Orden as OrdenModel
-        orden = OrdenModel("ORD-001", "Cliente Test", "Veh Test", datetime.utcnow())
+        orden = OrdenModel("ORD-001", "Cliente Test", "Veh Test", datetime.now(timezone.utc))
         assert orden.order_id == "ORD-001"
         assert orden.cliente == "Cliente Test"
         assert orden.vehiculo == "Veh Test"
@@ -171,7 +171,7 @@ def test_orden_models_agregar_servicio():
     try:
         from app.domain.models.order import Orden as OrdenModel
         from app.domain.models.service import Servicio as ServicioModel
-        orden = OrdenModel("ORD-001", "Cliente", "Veh", datetime.utcnow())
+        orden = OrdenModel("ORD-001", "Cliente", "Veh", datetime.now(timezone.utc))
         servicio = ServicioModel("Reparación", Decimal("100"))
         orden.agregar_servicio(servicio)
         assert len(orden.servicios) == 1
@@ -183,7 +183,7 @@ def test_orden_models_establecer_estado_diagnosticado():
     try:
         from app.domain.models.order import Orden as OrdenModel
         from app.domain.enums import EstadoOrden
-        orden = OrdenModel("ORD-001", "Cliente", "Veh", datetime.utcnow())
+        orden = OrdenModel("ORD-001", "Cliente", "Veh", datetime.now(timezone.utc))
         orden.establecer_estado_diagnosticado()
         assert orden.estado == EstadoOrden.DIAGNOSED
     except ImportError:
@@ -195,7 +195,7 @@ def test_orden_models_autorizar():
         from app.domain.models.order import Orden as OrdenModel
         from app.domain.models.service import Servicio as ServicioModel
         from app.domain.enums import EstadoOrden
-        orden = OrdenModel("ORD-001", "Cliente", "Veh", datetime.utcnow())
+        orden = OrdenModel("ORD-001", "Cliente", "Veh", datetime.now(timezone.utc))
         servicio = ServicioModel("Servicio", Decimal("1000"))
         orden.agregar_servicio(servicio)
         orden.estado = EstadoOrden.DIAGNOSED
@@ -210,7 +210,7 @@ def test_orden_models_establecer_estado_en_proceso():
     try:
         from app.domain.models.order import Orden as OrdenModel
         from app.domain.enums import EstadoOrden
-        orden = OrdenModel("ORD-001", "Cliente", "Veh", datetime.utcnow())
+        orden = OrdenModel("ORD-001", "Cliente", "Veh", datetime.now(timezone.utc))
         orden.estado = EstadoOrden.AUTHORIZED
         orden.establecer_estado_en_proceso()
         assert orden.estado == EstadoOrden.IN_PROGRESS
@@ -222,7 +222,7 @@ def test_orden_models_establecer_costo_real():
     try:
         from app.domain.models.order import Orden as OrdenModel
         from app.domain.models.service import Servicio as ServicioModel
-        orden = OrdenModel("ORD-001", "Cliente", "Veh", datetime.utcnow())
+        orden = OrdenModel("ORD-001", "Cliente", "Veh", datetime.now(timezone.utc))
         servicio = ServicioModel("Servicio", Decimal("1000"))
         servicio.id_servicio = 1
         orden.agregar_servicio(servicio)
@@ -237,7 +237,7 @@ def test_orden_models_intentar_completar():
         from app.domain.models.order import Orden as OrdenModel
         from app.domain.models.service import Servicio as ServicioModel
         from app.domain.enums import EstadoOrden
-        orden = OrdenModel("ORD-001", "Cliente", "Veh", datetime.utcnow())
+        orden = OrdenModel("ORD-001", "Cliente", "Veh", datetime.now(timezone.utc))
         servicio = ServicioModel("Servicio", Decimal("1000"))
         servicio.costo_real = Decimal("1050")
         servicio.id_servicio = 1
@@ -255,7 +255,7 @@ def test_orden_models_reautorizar():
         from app.domain.models.order import Orden as OrdenModel
         from app.domain.models.service import Servicio as ServicioModel
         from app.domain.enums import EstadoOrden
-        orden = OrdenModel("ORD-001", "Cliente", "Veh", datetime.utcnow())
+        orden = OrdenModel("ORD-001", "Cliente", "Veh", datetime.now(timezone.utc))
         servicio = ServicioModel("Servicio", Decimal("1000"))
         servicio.costo_real = Decimal("1200")
         orden.agregar_servicio(servicio)
@@ -273,7 +273,7 @@ def test_orden_models_entregar():
     try:
         from app.domain.models.order import Orden as OrdenModel
         from app.domain.enums import EstadoOrden
-        orden = OrdenModel("ORD-001", "Cliente", "Veh", datetime.utcnow())
+        orden = OrdenModel("ORD-001", "Cliente", "Veh", datetime.now(timezone.utc))
         orden.estado = EstadoOrden.COMPLETED
         orden.entregar()
         assert orden.estado == EstadoOrden.DELIVERED
@@ -285,7 +285,7 @@ def test_orden_models_cancelar():
     try:
         from app.domain.models.order import Orden as OrdenModel
         from app.domain.enums import EstadoOrden
-        orden = OrdenModel("ORD-001", "Cliente", "Veh", datetime.utcnow())
+        orden = OrdenModel("ORD-001", "Cliente", "Veh", datetime.now(timezone.utc))
         orden.cancelar("Cliente canceló")
         assert orden.estado == EstadoOrden.CANCELLED
         assert orden.fecha_cancelacion is not None
@@ -360,7 +360,7 @@ def test_componente_models_crear():
 def test_evento_models_crear():
     try:
         from app.domain.models.event import Evento as EventoModel
-        evento = EventoModel("CREATED", datetime.utcnow(), {"user": "admin"})
+        evento = EventoModel("CREATED", datetime.now(timezone.utc), {"user": "admin"})
         assert evento.tipo == "CREATED"
         assert evento.metadatos == {"user": "admin"}
     except ImportError:

@@ -1,5 +1,5 @@
 from decimal import Decimal
-from datetime import datetime
+from datetime import datetime, timezone
 import pytest
 from app.drivers.api.schemas import (
     HealthResponse,
@@ -81,7 +81,7 @@ def test_create_order_request():
         customer="Juan",
         vehicle="Auto",
         order_id="ORD-001",
-        ts=datetime.utcnow()
+        ts=datetime.now(timezone.utc)
     )
     assert request.customer == "Juan"
     assert request.vehicle == "Auto"
@@ -109,14 +109,14 @@ def test_set_real_cost_request():
 
 
 def test_authorize_request():
-    request = AuthorizeRequest(ts=datetime.utcnow())
+    request = AuthorizeRequest(ts=datetime.now(timezone.utc))
     assert request.ts is not None
 
 
 def test_reauthorize_request():
     request = ReauthorizeRequest(
         new_authorized_amount=Decimal("1500.00"),
-        ts=datetime.utcnow()
+        ts=datetime.now(timezone.utc)
     )
     assert request.new_authorized_amount == Decimal("1500.00")
 
@@ -207,7 +207,7 @@ def test_create_order_request_validar_campo_vacio():
             order_id="ORD-001",
             customer="",  # Campo vacío
             vehicle="Auto-123",
-            ts=datetime.utcnow()
+            ts=datetime.now(timezone.utc)
         )
     error_msg = str(exc_info.value).lower()
     assert "campo requerido" in error_msg or "at least 1 character" in error_msg
@@ -222,7 +222,7 @@ def test_create_order_request_validar_campo_solo_espacios():
             order_id="ORD-001",
             customer="Cliente",
             vehicle="   ",  # Solo espacios
-            ts=datetime.utcnow()
+            ts=datetime.now(timezone.utc)
         )
     assert exc_info.value is not None
 
@@ -268,7 +268,7 @@ def test_create_order_request_order_id_con_espacios():
         order_id="  ORD-123  ",
         customer="Cliente",
         vehicle="Auto",
-        ts=datetime.utcnow()
+        ts=datetime.now(timezone.utc)
     )
     assert request.order_id == "ORD-123"
 
@@ -309,4 +309,5 @@ def test_update_vehiculo_request_normalizar_customer_objeto():
     customer_obj = CustomerIdentifier(nombre="Cliente Obj")
     request = UpdateVehiculoRequest(customer=customer_obj)
     assert request.customer.nombre == "Cliente Obj"
+
 

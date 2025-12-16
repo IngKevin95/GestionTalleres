@@ -5,7 +5,7 @@ Verifica que todas las operaciones sobre una orden cancelada
 lancen las excepciones correctas, protegiendo la integridad del negocio.
 """
 from decimal import Decimal
-from datetime import datetime
+from datetime import datetime, timezone
 import pytest
 
 from app.domain.exceptions import ErrorDominio
@@ -23,7 +23,7 @@ def orden_taller_ejemplo():
             order_id="ORD-2024-0156",
             cliente="María González Pérez",
             vehiculo="Toyota Corolla 2018 - Placa ABC-123",
-            fecha_creacion=datetime.utcnow()
+            fecha_creacion=datetime.now(timezone.utc)
         )
     except ImportError:
         pytest.skip("Módulo domain.models no disponible")
@@ -284,7 +284,7 @@ class TestRegistroCostosRealesConComponentes:
                 "ORD-2024-0200",
                 "Carlos Rodríguez Méndez",
                 "Chevrolet Spark 2015 - XYZ-789",
-                datetime.utcnow()
+                datetime.now(timezone.utc)
             )
             
             servicio_frenos = ServicioModel(
@@ -350,7 +350,7 @@ class TestRegistroCostosRealesConComponentes:
                 "ORD-2024-0201",
                 "Ana Martínez Torres",
                 "Mazda 3 2019 - LMN-456",
-                datetime.utcnow()
+                datetime.now(timezone.utc)
             )
             
             servicio = ServicioModel(
@@ -384,3 +384,4 @@ class TestRegistroCostosRealesConComponentes:
             
         except ImportError:
             pytest.skip("Módulo domain.models no disponible")
+

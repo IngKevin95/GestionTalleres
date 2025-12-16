@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import Mock, MagicMock, patch
 from decimal import Decimal
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.application.action_service import ActionService
 from app.application.dtos import OrdenDTO, EventoDTO, ErrorDTO
@@ -281,7 +281,7 @@ def test_procesar_comando_operacion_desconocida_incluye_contexto():
     }
     
     with patch('app.application.action_service.logger') as mock_logger:
-        orden_dto, eventos_dto, error_dto = srv.procesar_comando(cmd)
+        _, _, _ = srv.procesar_comando(cmd)
         
         mock_logger.error.assert_called_once()
         call_kwargs = mock_logger.error.call_args.kwargs
@@ -616,7 +616,7 @@ def test_procesar_comando_create_order():
         res = srv.procesar_comando(cmd)
         
         assert res is not None
-        ord_dto, evts, err = res
+        ord_dto, _, err = res
         assert ord_dto is not None
         assert err is None
 
