@@ -28,6 +28,17 @@ def sesion_base_datos():
 
 
 @pytest.fixture
+def unidad_trabajo_mock(sesion_base_datos):
+    """Crea un mock de UnidadTrabajo para tests"""
+    unidad = Mock()
+    unidad.obtener_repositorio_cliente.return_value = Mock(spec=RepositorioClienteSQL)
+    unidad.obtener_repositorio_vehiculo.return_value = Mock(spec=RepositorioVehiculoSQL)
+    unidad.obtener_repositorio_servicio.return_value = Mock(spec=RepositorioServicioSQL)
+    unidad.obtener_repositorio_evento.return_value = Mock(spec=RepositorioEventoSQL)
+    return unidad
+
+
+@pytest.fixture
 def cliente_habitual():
     """Cliente frecuente del taller con datos realistas"""
     cliente_mock = Mock()
@@ -68,7 +79,8 @@ def test_buscar_orden_inexistente_retorna_none():
     sesion.query.return_value = query_mock
     
     # When - Buscar orden inexistente
-    repo = RepositorioOrden(sesion)
+    unidad_trabajo = Mock()
+    repo = RepositorioOrden(sesion, unidad_trabajo)
     orden = repo.obtener("ORD-999")
     
     # Then - Retorna None
@@ -169,11 +181,11 @@ def test_repositorio_vehiculo_tiene_metodos():
     assert hasattr(repo, 'listar')
 
 
-def test_repositorio_orden_tiene_repos_internos():
+def test_repositorio_orden_tiene_unidad_trabajo(unidad_trabajo_mock):
     session_mock = Mock(spec=Session)
-    repo = RepositorioOrden(session_mock)
-    assert hasattr(repo, 'repo_servicio')
-    assert hasattr(repo, 'repo_evento')
+    repo = RepositorioOrden(session_mock, unidad_trabajo_mock)
+    assert hasattr(repo, 'unidad_trabajo')
+    assert repo.unidad_trabajo == unidad_trabajo_mock
 
 
 def test_repositorio_servicio_creation():
@@ -189,7 +201,7 @@ def test_repositorio_evento_creation():
     assert repo.sesion == session_mock
 
 
-def test_repositorio_orden_deserializar():
+def test_repositorio_orden_deserializar(unidad_trabajo_mock):
     modelo_mock = Mock()
     modelo_mock.id = 1
     modelo_mock.order_id = "ORD-001"
@@ -211,11 +223,15 @@ def test_repositorio_orden_deserializar():
     sesion = Mock(spec=Session)
     sesion.query.return_value = query_mock
     
-    repo = RepositorioOrden(sesion)
-    repo.repo_servicio = Mock()
-    repo.repo_evento = Mock()
-    repo.repo_cliente = Mock()
-    repo.repo_vehiculo = Mock()
+    repo_servicio_mock = Mock()
+    repo_servicio_mock.deserializar_servicios.return_value = []
+    repo_evento_mock = Mock()
+    repo_evento_mock.deserializar_eventos.return_value = []
+    
+    unidad_trabajo_mock.obtener_repositorio_servicio.return_value = repo_servicio_mock
+    unidad_trabajo_mock.obtener_repositorio_evento.return_value = repo_evento_mock
+    
+    repo = RepositorioOrden(sesion, unidad_trabajo_mock)
     
     orden = repo.obtener("ORD-001")
     assert orden is not None
@@ -271,11 +287,13 @@ def test_repositorio_orden_guardar_nueva():
     query_mock.filter.return_value.first.return_value = None
     sesion.query.return_value = query_mock
     
-    repo = RepositorioOrden(sesion)
-    repo.repo_cliente = repo_cliente
-    repo.repo_vehiculo = repo_vehiculo
-    repo.repo_servicio = repo_servicio
-    repo.repo_evento = repo_evento
+    unidad_trabajo = Mock()
+    unidad_trabajo.obtener_repositorio_cliente.return_value = repo_cliente
+    unidad_trabajo.obtener_repositorio_vehiculo.return_value = repo_vehiculo
+    unidad_trabajo.obtener_repositorio_servicio.return_value = repo_servicio
+    unidad_trabajo.obtener_repositorio_evento.return_value = repo_evento
+    
+    repo = RepositorioOrden(sesion, unidad_trabajo)
     
     orden = Orden("ORD-001", "Juan", "ABC-123", datetime.now(timezone.utc))
     repo.guardar(orden)
@@ -311,11 +329,13 @@ def test_repositorio_orden_guardar_existente():
     query_mock.filter.return_value.first.return_value = modelo_existente
     sesion.query.return_value = query_mock
     
-    repo = RepositorioOrden(sesion)
-    repo.repo_cliente = repo_cliente
-    repo.repo_vehiculo = repo_vehiculo
-    repo.repo_servicio = repo_servicio
-    repo.repo_evento = repo_evento
+    unidad_trabajo = Mock()
+    unidad_trabajo.obtener_repositorio_cliente.return_value = repo_cliente
+    unidad_trabajo.obtener_repositorio_vehiculo.return_value = repo_vehiculo
+    unidad_trabajo.obtener_repositorio_servicio.return_value = repo_servicio
+    unidad_trabajo.obtener_repositorio_evento.return_value = repo_evento
+    
+    repo = RepositorioOrden(sesion, unidad_trabajo)
     
     orden = Orden("ORD-001", "Juan", "ABC-123", datetime.now(timezone.utc))
     orden.id = 1
@@ -349,11 +369,13 @@ def test_repositorio_orden_guardar_con_id_diferente():
     query_mock.filter.return_value.first.return_value = modelo_existente
     sesion.query.return_value = query_mock
     
-    repo = RepositorioOrden(sesion)
-    repo.repo_cliente = repo_cliente
-    repo.repo_vehiculo = repo_vehiculo
-    repo.repo_servicio = repo_servicio
-    repo.repo_evento = repo_evento
+    unidad_trabajo = Mock()
+    unidad_trabajo.obtener_repositorio_cliente.return_value = repo_cliente
+    unidad_trabajo.obtener_repositorio_vehiculo.return_value = repo_vehiculo
+    unidad_trabajo.obtener_repositorio_servicio.return_value = repo_servicio
+    unidad_trabajo.obtener_repositorio_evento.return_value = repo_evento
+    
+    repo = RepositorioOrden(sesion, unidad_trabajo)
     
     orden = Orden("ORD-001", "Juan", "ABC-123", datetime.now(timezone.utc))
     orden.id = 1
@@ -391,11 +413,13 @@ def test_repositorio_orden_guardar_nueva_con_id():
     ]
     sesion.query.return_value = query_mock
     
-    repo = RepositorioOrden(sesion)
-    repo.repo_cliente = repo_cliente
-    repo.repo_vehiculo = repo_vehiculo
-    repo.repo_servicio = repo_servicio
-    repo.repo_evento = repo_evento
+    unidad_trabajo = Mock()
+    unidad_trabajo.obtener_repositorio_cliente.return_value = repo_cliente
+    unidad_trabajo.obtener_repositorio_vehiculo.return_value = repo_vehiculo
+    unidad_trabajo.obtener_repositorio_servicio.return_value = repo_servicio
+    unidad_trabajo.obtener_repositorio_evento.return_value = repo_evento
+    
+    repo = RepositorioOrden(sesion, unidad_trabajo)
     
     orden = Orden("ORD-001", "Juan", "ABC-123", datetime.now(timezone.utc))
     orden.id = 999
@@ -437,9 +461,11 @@ def test_repositorio_orden_deserializar_completo():
     repo_evento = Mock()
     repo_evento.deserializar_eventos.return_value = []
     
-    repo = RepositorioOrden(sesion)
-    repo.repo_servicio = repo_servicio
-    repo.repo_evento = repo_evento
+    unidad_trabajo = Mock()
+    unidad_trabajo.obtener_repositorio_servicio.return_value = repo_servicio
+    unidad_trabajo.obtener_repositorio_evento.return_value = repo_evento
+    
+    repo = RepositorioOrden(sesion, unidad_trabajo)
     
     orden = repo._deserializar(modelo_mock)
     

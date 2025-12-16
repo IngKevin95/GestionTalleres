@@ -1,13 +1,14 @@
 from unittest.mock import Mock, patch
 from app.drivers.api.dependencies import (
     obtener_sesion_db,
+    obtener_unidad_trabajo,
     obtener_repositorio,
     obtener_auditoria,
     obtener_action_service,
     obtener_repositorio_cliente,
     obtener_repositorio_vehiculo
 )
-from app.infrastructure.repositories import RepositorioOrden, RepositorioClienteSQL, RepositorioVehiculoSQL
+from app.infrastructure.repositories import RepositorioOrden, RepositorioClienteSQL, RepositorioVehiculoSQL, UnidadTrabajoSQL
 from app.infrastructure.logger import AlmacenEventosLogger
 from app.application.action_service import ActionService
 
@@ -30,10 +31,20 @@ def test_obtener_sesion_db_cierra_sesion():
         sesion_mock.close.assert_called_once()
 
 
+def test_obtener_unidad_trabajo():
+    sesion_mock = Mock()
+    
+    unidad = obtener_unidad_trabajo(sesion_mock)
+    
+    assert isinstance(unidad, UnidadTrabajoSQL)
+    assert unidad.sesion == sesion_mock
+
+
 def test_obtener_repositorio():
     sesion_mock = Mock()
     
-    repo = obtener_repositorio(sesion_mock)
+    unidad = obtener_unidad_trabajo(sesion_mock)
+    repo = obtener_repositorio(unidad)
     
     assert isinstance(repo, RepositorioOrden)
     assert repo.sesion == sesion_mock
@@ -47,7 +58,8 @@ def test_obtener_auditoria():
 
 def test_obtener_action_service():
     sesion_mock = Mock()
-    repo = RepositorioOrden(sesion_mock)
+    unidad = UnidadTrabajoSQL(sesion_mock)
+    repo = unidad.obtener_repositorio_orden()
     auditoria = AlmacenEventosLogger()
     
     service = obtener_action_service(repo, auditoria)

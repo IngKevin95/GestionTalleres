@@ -4,12 +4,13 @@ from sqlalchemy.orm import Session
 from ...domain.entidades import Orden
 from ...domain.enums import EstadoOrden
 from ...domain.dinero import a_decimal
-from ...application.ports import RepositorioOrden as IRepositorioOrden
+from ...application.ports import RepositorioOrden as IRepositorioOrden, UnidadTrabajo
 from ..models.orden_model import OrdenModel
 from .repositorio_servicio import RepositorioServicioSQL
 from .repositorio_evento import RepositorioEventoSQL
 from .repositorio_cliente import RepositorioClienteSQL
 from .repositorio_vehiculo import RepositorioVehiculoSQL
+from .unidad_trabajo import UnidadTrabajoSQL
 from ..logging_config import obtener_logger
 
 
@@ -17,12 +18,23 @@ logger = obtener_logger("app.infrastructure.repositories.repositorio_orden")
 
 
 class RepositorioOrden(IRepositorioOrden):
-    def __init__(self, sesion: Session):
+    def __init__(self, sesion: Session, unidad_trabajo: Optional[UnidadTrabajo] = None):
         self.sesion = sesion
-        self.repo_servicio = RepositorioServicioSQL(sesion)
-        self.repo_evento = RepositorioEventoSQL(sesion)
-        self.repo_cliente = RepositorioClienteSQL(sesion)
-        self.repo_vehiculo = RepositorioVehiculoSQL(sesion)
+        if unidad_trabajo is None:
+            unidad_trabajo = UnidadTrabajoSQL(sesion)
+        self.unidad_trabajo = unidad_trabajo
+    
+    def _obtener_repo_cliente(self) -> RepositorioClienteSQL:
+        return self.unidad_trabajo.obtener_repositorio_cliente()
+    
+    def _obtener_repo_vehiculo(self) -> RepositorioVehiculoSQL:
+        return self.unidad_trabajo.obtener_repositorio_vehiculo()
+    
+    def _obtener_repo_servicio(self) -> RepositorioServicioSQL:
+        return self.unidad_trabajo.obtener_repositorio_servicio()
+    
+    def _obtener_repo_evento(self) -> RepositorioEventoSQL:
+        return self.unidad_trabajo.obtener_repositorio_evento()
     
     def obtener(self, order_id: str) -> Optional[Orden]:
         modelo = self.sesion.query(OrdenModel).filter(OrdenModel.order_id == order_id).first()
@@ -34,8 +46,10 @@ class RepositorioOrden(IRepositorioOrden):
     
     def _obtener_o_crear_cliente_vehiculo(self, orden: Orden) -> tuple:
         """Obtiene o crea cliente y vehículo, retorna sus IDs."""
-        cliente = self.repo_cliente.buscar_o_crear_por_nombre(orden.cliente)
-        vehiculo = self.repo_vehiculo.buscar_o_crear_por_placa(orden.vehiculo, cliente.id_cliente)
+        repo_cliente = self._obtener_repo_cliente()
+        repo_vehiculo = self._obtener_repo_vehiculo()
+        cliente = repo_cliente.buscar_o_crear_por_nombre(orden.cliente)
+        vehiculo = repo_vehiculo.buscar_o_crear_por_placa(orden.vehiculo, cliente.id_cliente)
         return cliente.id_cliente, vehiculo.id_vehiculo
     
     def _validar_ids_orden(self, orden: Orden, modelo: OrdenModel) -> None:
@@ -52,8 +66,10 @@ class RepositorioOrden(IRepositorioOrden):
     
     def _guardar_entidades_relacionadas(self, modelo_id: int, orden: Orden, modelo: OrdenModel) -> None:
         """Guarda servicios y eventos relacionados con la orden."""
-        self.repo_servicio.guardar_servicios(modelo_id, orden.servicios, modelo.servicios)
-        self.repo_evento.guardar_eventos(modelo_id, orden.eventos, modelo.eventos)
+        repo_servicio = self._obtener_repo_servicio()
+        repo_evento = self._obtener_repo_evento()
+        repo_servicio.guardar_servicios(modelo_id, orden.servicios, modelo.servicios)
+        repo_evento.guardar_eventos(modelo_id, orden.eventos, modelo.eventos)
     
     def guardar(self, orden: Orden) -> None:
         id_cliente, id_vehiculo = self._obtener_o_crear_cliente_vehiculo(orden)
@@ -100,8 +116,10 @@ class RepositorioOrden(IRepositorioOrden):
         modelo.fecha_cancelacion = orden.fecha_cancelacion
     
     def _deserializar(self, modelo: OrdenModel) -> Orden:
-        servicios = self.repo_servicio.deserializar_servicios(modelo.servicios)
-        eventos = self.repo_evento.deserializar_eventos(modelo.eventos)
+        repo_servicio = self._obtener_repo_servicio()
+        repo_evento = self._obtener_repo_evento()
+        servicios = repo_servicio.deserializar_servicios(modelo.servicios)
+        eventos = repo_evento.deserializar_eventos(modelo.eventos)
         
         cliente_nombre = modelo.cliente.nombre if modelo.cliente else ""
         vehiculo_placa = modelo.vehiculo.placa if modelo.vehiculo else ""

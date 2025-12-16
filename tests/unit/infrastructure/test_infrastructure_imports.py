@@ -138,6 +138,12 @@ class TestRepositoriesImports:
         from app.infrastructure.repositories.repositorio_evento import RepositorioEventoSQL
         
         assert RepositorioEventoSQL is not None
+    
+    def test_unidad_trabajo_import(self):
+        """Test importar UnidadTrabajoSQL."""
+        from app.infrastructure.repositories.unidad_trabajo import UnidadTrabajoSQL
+        
+        assert UnidadTrabajoSQL is not None
 
 
 class TestRepositoryEdgeCases:
@@ -170,11 +176,13 @@ class TestRepositoryEdgeCases:
     def test_repositorio_orden_obtener_no_existe(self):
         """Test obtener orden no existente."""
         from app.infrastructure.repositories.repositorio_orden import RepositorioOrden
+        from app.infrastructure.repositories.unidad_trabajo import UnidadTrabajoSQL
         
         sesion = Mock()
         sesion.query.return_value.filter.return_value.first.return_value = None
         
-        repo = RepositorioOrden(sesion)
+        unidad = UnidadTrabajoSQL(sesion)
+        repo = RepositorioOrden(sesion, unidad)
         resultado = repo.obtener("NO_EXISTE")
         
         assert resultado is None

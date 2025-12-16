@@ -2,7 +2,7 @@ from fastapi import Depends
 from sqlalchemy.orm import Session
 
 from ...infrastructure.db import obtener_sesion
-from ...infrastructure.repositories import RepositorioOrden, RepositorioClienteSQL, RepositorioVehiculoSQL
+from ...infrastructure.repositories import RepositorioOrden, RepositorioClienteSQL, RepositorioVehiculoSQL, UnidadTrabajoSQL
 from ...infrastructure.logger import AlmacenEventosLogger
 
 from ...application.action_service import ActionService
@@ -16,8 +16,12 @@ def obtener_sesion_db() -> Session:
         sesion.close()
 
 
-def obtener_repositorio(sesion: Session = Depends(obtener_sesion_db)) -> RepositorioOrden:
-    return RepositorioOrden(sesion)
+def obtener_unidad_trabajo(sesion: Session = Depends(obtener_sesion_db)) -> UnidadTrabajoSQL:
+    return UnidadTrabajoSQL(sesion)
+
+
+def obtener_repositorio(unidad_trabajo: UnidadTrabajoSQL = Depends(obtener_unidad_trabajo)) -> RepositorioOrden:
+    return unidad_trabajo.obtener_repositorio_orden()
 
 
 def obtener_auditoria() -> AlmacenEventosLogger:

@@ -1,6 +1,7 @@
 from unittest.mock import Mock, patch
 from app.drivers.api.dependencies import (
     obtener_sesion_db,
+    obtener_unidad_trabajo,
     obtener_repositorio,
     obtener_auditoria,
     obtener_action_service,
@@ -36,7 +37,8 @@ def test_obtener_repositorio(mock_sesion_db):
     sesion_mock = Mock()
     mock_sesion_db.return_value = iter([sesion_mock])
     
-    repo = obtener_repositorio(sesion_mock)
+    unidad = obtener_unidad_trabajo(sesion_mock)
+    repo = obtener_repositorio(unidad)
     
     assert isinstance(repo, RepositorioOrden)
 
