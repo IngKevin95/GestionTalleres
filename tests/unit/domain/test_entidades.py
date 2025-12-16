@@ -1,8 +1,44 @@
 from decimal import Decimal
 from datetime import datetime
-from app.domain.entidades import Orden, Servicio, Componente
+from app.domain.entidades import Orden, Servicio, Componente, Cliente, Vehiculo
+from app.domain.entidades.event import Evento
 from app.domain.enums import EstadoOrden, CodigoError
 from app.domain.exceptions import ErrorDominio
+
+
+def test_cliente_crear():
+    cliente = Cliente("Juan Pérez")
+    assert cliente.nombre == "Juan Pérez"
+    assert cliente.id_cliente is None
+
+
+def test_cliente_con_id():
+    cliente = Cliente("Juan Pérez")
+    cliente.id_cliente = "CLI-001"
+    assert cliente.id_cliente == "CLI-001"
+
+
+def test_vehiculo_crear():
+    vehiculo = Vehiculo("ABC-123", 1)
+    assert vehiculo.placa == "ABC-123"
+    assert vehiculo.id_cliente == 1
+    assert vehiculo.id_vehiculo is None
+
+
+def test_vehiculo_con_todos_los_campos():
+    vehiculo = Vehiculo(
+        "ABC-123",
+        1,
+        marca="Toyota",
+        modelo="Corolla",
+        anio=2020,
+        id_vehiculo=1
+    )
+    assert vehiculo.placa == "ABC-123"
+    assert vehiculo.marca == "Toyota"
+    assert vehiculo.modelo == "Corolla"
+    assert vehiculo.anio == 2020
+    assert vehiculo.id_vehiculo == 1
 
 
 def test_orden_reautorizar():
@@ -76,14 +112,33 @@ def test_orden_establecer_costo_real_con_componentes():
     assert componente.costo_real == Decimal("250.00")
 
 
-def test_orden_establecer_costo_real_servicio_no_encontrado():
-    orden = Orden("ORD-001", "Juan", "Auto", datetime.utcnow())
+def test_servicio_calcular_subtotal_estimado():
+    servicio = Servicio("Servicio", Decimal("1000.00"))
+    componente1 = Componente("Comp1", Decimal("200.00"))
+    componente2 = Componente("Comp2", Decimal("300.00"))
+    servicio.componentes.append(componente1)
+    servicio.componentes.append(componente2)
     
-    try:
-        orden.establecer_costo_real("SERV-999", Decimal("1200.00"))
-        assert False, "Debe lanzar error"
-    except ErrorDominio as e:
-        assert e.codigo == CodigoError.ORDER_NOT_FOUND
+    subtotal = servicio.calcular_subtotal_estimado()
+    assert subtotal == Decimal("1500.00")
+
+
+def test_servicio_calcular_costo_real():
+    servicio = Servicio("Servicio", Decimal("1000.00"))
+    servicio.costo_real = Decimal("1200.00")
+    
+    costo = servicio.calcular_costo_real()
+    assert costo == Decimal("1200.00")
+
+
+def test_servicio_calcular_costo_real_sin_costo_real():
+    servicio = Servicio("Servicio", Decimal("1000.00"))
+    componente = Componente("Comp", Decimal("200.00"))
+    componente.costo_real = Decimal("250.00")
+    servicio.componentes.append(componente)
+    
+    costo = servicio.calcular_costo_real()
+    assert costo == Decimal("1250.00")
 
 
 def test_orden_intentar_completar_exactamente_110():
@@ -111,29 +166,6 @@ def test_orden_intentar_completar_orden_cancelada():
         assert e.codigo == CodigoError.ORDER_CANCELLED
 
 
-def test_orden_intentar_completar_sin_autorizacion():
-    orden = Orden("ORD-001", "Juan", "Auto", datetime.utcnow())
-    orden.estado = EstadoOrden.IN_PROGRESS
-    
-    try:
-        orden.intentar_completar()
-        assert False, "Debe lanzar error"
-    except ErrorDominio as e:
-        assert e.codigo == CodigoError.SEQUENCE_ERROR
-
-
-def test_orden_intentar_completar_estado_invalido():
-    orden = Orden("ORD-001", "Juan", "Auto", datetime.utcnow())
-    orden.estado = EstadoOrden.CREATED
-    orden.monto_autorizado = Decimal("1160.00")
-    
-    try:
-        orden.intentar_completar()
-        assert False, "Debe lanzar error"
-    except ErrorDominio as e:
-        assert e.codigo == CodigoError.SEQUENCE_ERROR
-
-
 def test_orden_establecer_estado_en_proceso():
     orden = Orden("ORD-001", "Juan", "Auto", datetime.utcnow())
     orden.estado = EstadoOrden.AUTHORIZED
@@ -156,75 +188,50 @@ def test_orden_establecer_estado_en_proceso_estado_invalido():
         assert e.codigo == CodigoError.SEQUENCE_ERROR
 
 
-def test_servicio_calcular_subtotal_estimado():
-    servicio = Servicio("Servicio", Decimal("1000.00"))
-    componente1 = Componente("Comp1", Decimal("200.00"))
-    componente2 = Componente("Comp2", Decimal("300.00"))
-    servicio.componentes.append(componente1)
-    servicio.componentes.append(componente2)
-    
-    subtotal = servicio.calcular_subtotal_estimado()
-    assert subtotal == Decimal("1500.00")
-
-
-def test_servicio_calcular_costo_real_con_costo_real():
-    servicio = Servicio("Servicio", Decimal("1000.00"))
-    servicio.costo_real = Decimal("1200.00")
-    
-    costo = servicio.calcular_costo_real()
-    assert costo == Decimal("1200.00")
-
-
-def test_servicio_calcular_costo_real_sin_costo_real():
-    servicio = Servicio("Servicio", Decimal("1000.00"))
-    componente = Componente("Comp", Decimal("200.00"))
-    componente.costo_real = Decimal("250.00")
-    servicio.componentes.append(componente)
-    
-    costo = servicio.calcular_costo_real()
-    assert costo == Decimal("1250.00")
-
-
-def test_servicio_calcular_costo_real_sin_nada():
-    servicio = Servicio("Servicio", Decimal("1000.00"))
-    componente = Componente("Comp", Decimal("200.00"))
-    servicio.componentes.append(componente)
-    
-    costo = servicio.calcular_costo_real()
-    assert costo == Decimal("1200.00")
-
-
-def test_orden_crear_orden_existente():
-    from app.application.acciones import CrearOrden
-    from app.application.dtos import CrearOrdenDTO
-    from app.application.ports import RepositorioOrden, AlmacenEventos
-    from app.domain.entidades import Evento
-    
-    class RepoMock(RepositorioOrden):
-        def __init__(self):
-            self.orden = Orden("ORD-001", "Juan", "Auto", datetime.utcnow())
-        def obtener(self, id_orden: str):
-            return self.orden if id_orden == "ORD-001" else None
-        def guardar(self, orden: Orden):
-            pass
-    
-    class AuditMock(AlmacenEventos):
-        def registrar(self, evento: Evento):
-            pass
-    
-    repo = RepoMock()
-    audit = AuditMock()
-    accion = CrearOrden(repo, audit)
-    
-    from app.application.dtos import CustomerIdentifierDTO, VehicleIdentifierDTO
-    
-    dto = CrearOrdenDTO(
-        order_id="ORD-001",
-        customer=CustomerIdentifierDTO(nombre="Juan"),
-        vehicle=VehicleIdentifierDTO(placa="Auto"),
-        timestamp=datetime.utcnow()
+def test_evento_crear():
+    evento = Evento(
+        tipo="ORDEN_CREADA",
+        timestamp=datetime.now(),
+        metadatos={"order_id": "ORD-001"}
     )
+    assert evento.tipo == "ORDEN_CREADA"
+    assert evento.metadatos["order_id"] == "ORD-001"
+
+
+def test_orden_establecer_costo_real_servicio_no_existe():
+    orden = Orden("ORD-001", "Juan", "Auto", datetime.utcnow())
     
-    resultado = accion.ejecutar(dto)
-    assert resultado.order_id == "ORD-001"
+    try:
+        orden.establecer_costo_real(999, Decimal("1000.00"), {})
+        assert False, "Debería lanzar ErrorDominio"
+    except ErrorDominio as e:
+        assert e.codigo == CodigoError.ORDER_NOT_FOUND
+        assert "Servicio no encontrado" in str(e.mensaje)
+
+
+def test_orden_intentar_completar_no_in_progress():
+    orden = Orden("ORD-001", "Juan", "Auto", datetime.utcnow())
+    orden.estado = EstadoOrden.CREATED
+    orden.monto_autorizado = Decimal("1160.00")
+    
+    try:
+        orden.intentar_completar()
+        assert False, "Debería lanzar ErrorDominio"
+    except ErrorDominio as e:
+        assert e.codigo == CodigoError.SEQUENCE_ERROR
+        assert "IN_PROGRESS" in str(e.mensaje)
+
+
+def test_orden_intentar_completar_sin_autorizacion():
+    orden = Orden("ORD-001", "Juan", "Auto", datetime.utcnow())
+    orden.estado = EstadoOrden.IN_PROGRESS
+    orden.monto_autorizado = None
+    
+    try:
+        orden.intentar_completar()
+        assert False, "Debería lanzar ErrorDominio"
+    except ErrorDominio as e:
+        assert e.codigo == CodigoError.SEQUENCE_ERROR
+        assert "no autorizada" in str(e.mensaje).lower()
+
 

@@ -2,7 +2,10 @@ import pytest
 import os
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
-from fastapi.testclient import TestClient
+try:
+    from starlette.testclient import TestClient
+except ImportError:
+    from fastapi.testclient import TestClient
 
 # Configurar variables de entorno para PostgreSQL en Docker
 # Usa localhost:5438 ya que está ejecutándose en Docker con puerto expuesto
@@ -50,6 +53,7 @@ def client():
     app.dependency_overrides[obtener_sesion_db] = get_test_db
     
     # Crear el cliente de prueba
+    from fastapi.testclient import TestClient
     test_client = TestClient(app)
     
     yield test_client

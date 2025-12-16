@@ -227,3 +227,223 @@ def test_vehiculo_a_dto():
     assert dto.id_cliente == 1
     assert dto.cliente_nombre == "Juan Pérez"
 
+
+def test_crear_orden_dto_customer_dict_id():
+    data = {
+        "order_id": "ORD-001",
+        "customer": {"id_cliente": 123},
+        "vehicle": "ABC-123"
+    }
+    dto = crear_orden_dto(data)
+    assert dto.customer.id_cliente == 123
+
+
+def test_crear_orden_dto_customer_dict_identificacion():
+    data = {
+        "order_id": "ORD-001",
+        "customer": {"identificacion": "12345678"},
+        "vehicle": "ABC-123"
+    }
+    dto = crear_orden_dto(data)
+    assert dto.customer.identificacion == "12345678"
+
+
+def test_crear_orden_dto_customer_dict_nombre():
+    data = {
+        "order_id": "ORD-001",
+        "customer": {"nombre": "Juan Pérez"},
+        "vehicle": "ABC-123"
+    }
+    dto = crear_orden_dto(data)
+    assert dto.customer.nombre == "Juan Pérez"
+
+
+def test_crear_orden_dto_customer_multiples_criterios():
+    data = {
+        "order_id": "ORD-001",
+        "customer": {"id_cliente": 123, "nombre": "Juan"},
+        "vehicle": "ABC-123"
+    }
+    try:
+        crear_orden_dto(data)
+        assert False, "Debería lanzar ValueError"
+    except ValueError as e:
+        assert "exactamente uno" in str(e).lower()
+
+
+def test_crear_orden_dto_customer_tipo_invalido():
+    data = {
+        "order_id": "ORD-001",
+        "customer": 123,
+        "vehicle": "ABC-123"
+    }
+    try:
+        crear_orden_dto(data)
+        assert False, "Debería lanzar ValueError"
+    except ValueError as e:
+        assert "string o un objeto" in str(e).lower()
+
+
+def test_crear_orden_dto_customer_vacio():
+    data = {
+        "order_id": "ORD-001",
+        "customer": None,
+        "vehicle": "ABC-123"
+    }
+    try:
+        crear_orden_dto(data)
+        assert False, "Debería lanzar ValueError"
+    except ValueError:
+        pass
+
+
+def test_crear_orden_dto_vehicle_dict_id():
+    data = {
+        "order_id": "ORD-001",
+        "customer": "Juan",
+        "vehicle": {"id_vehiculo": 456}
+    }
+    dto = crear_orden_dto(data)
+    assert dto.vehicle.id_vehiculo == 456
+
+
+def test_crear_orden_dto_vehicle_dict_placa():
+    data = {
+        "order_id": "ORD-001",
+        "customer": "Juan",
+        "vehicle": {"placa": "XYZ-789"}
+    }
+    dto = crear_orden_dto(data)
+    assert dto.vehicle.placa == "XYZ-789"
+
+
+def test_crear_orden_dto_vehicle_multiples_criterios():
+    data = {
+        "order_id": "ORD-001",
+        "customer": "Juan",
+        "vehicle": {"id_vehiculo": 456, "placa": "XYZ-789"}
+    }
+    try:
+        crear_orden_dto(data)
+        assert False, "Debería lanzar ValueError"
+    except ValueError as e:
+        assert "exactamente uno" in str(e).lower()
+
+
+def test_crear_orden_dto_vehicle_tipo_invalido():
+    data = {
+        "order_id": "ORD-001",
+        "customer": "Juan",
+        "vehicle": 123
+    }
+    try:
+        crear_orden_dto(data)
+        assert False, "Debería lanzar ValueError"
+    except ValueError as e:
+        assert "string" in str(e).lower() or "objeto" in str(e).lower()
+
+
+def test_crear_orden_dto_vehicle_vacio():
+    data = {
+        "order_id": "ORD-001",
+        "customer": "Juan",
+        "vehicle": None
+    }
+    try:
+        crear_orden_dto(data)
+        assert False, "Debería lanzar ValueError"
+    except ValueError:
+        pass
+
+
+def test_crear_orden_dto_con_customer_extra():
+    data = {
+        "order_id": "ORD-001",
+        "customer": {
+            "nombre": "Juan",
+            "correo": "juan@test.com",
+            "direccion": "Calle 123",
+            "celular": "123456789"
+        },
+        "vehicle": "ABC-123"
+    }
+    dto = crear_orden_dto(data)
+    assert dto.customer_extra is not None
+    assert dto.customer_extra["correo"] == "juan@test.com"
+    assert dto.customer_extra["direccion"] == "Calle 123"
+
+
+def test_crear_orden_dto_con_vehicle_extra():
+    data = {
+        "order_id": "ORD-001",
+        "customer": "Juan",
+        "vehicle": {
+            "placa": "ABC-123",
+            "marca": "Toyota",
+            "modelo": "Corolla",
+            "anio": 2020,
+            "kilometraje": 50000
+        }
+    }
+    dto = crear_orden_dto(data)
+    assert dto.vehicle_extra is not None
+    assert dto.vehicle_extra["marca"] == "Toyota"
+    assert dto.vehicle_extra["modelo"] == "Corolla"
+
+
+def test_crear_orden_dto_customer_extra_vacio():
+    data = {
+        "order_id": "ORD-001",
+        "customer": {"nombre": "Juan"},
+        "vehicle": "ABC-123"
+    }
+    dto = crear_orden_dto(data)
+    assert dto.customer_extra is None
+
+
+def test_crear_orden_dto_vehicle_extra_vacio():
+    data = {
+        "order_id": "ORD-001",
+        "customer": "Juan",
+        "vehicle": {"placa": "ABC-123"}
+    }
+    dto = crear_orden_dto(data)
+    assert dto.vehicle_extra is None
+
+
+def test_orden_a_dto_sin_order_id():
+    ord = Orden("", "Juan", "Auto", datetime.now(timezone.utc))
+    try:
+        orden_a_dto(ord)
+        assert False, "Debería lanzar ValueError"
+    except ValueError as e:
+        assert "order_id" in str(e).lower()
+
+
+def test_cliente_a_dto_sin_id():
+    c = Cliente("Juan Pérez")
+    try:
+        cliente_a_dto(c)
+        assert False, "Debería lanzar ValueError"
+    except ValueError as e:
+        assert "id_cliente" in str(e).lower()
+
+
+def test_vehiculo_a_dto_sin_id_vehiculo():
+    v = Vehiculo("ABC-123", 1, "Toyota", "Corolla", 2020)
+    try:
+        vehiculo_a_dto(v)
+        assert False, "Debería lanzar ValueError"
+    except ValueError as e:
+        assert "id_vehiculo" in str(e).lower()
+
+
+def test_vehiculo_a_dto_sin_id_cliente():
+    v = Vehiculo("ABC-123", None, "Toyota", "Corolla", 2020)
+    v.id_vehiculo = 1
+    try:
+        vehiculo_a_dto(v)
+        assert False, "Debería lanzar ValueError"
+    except ValueError as e:
+        assert "id_cliente" in str(e).lower()
+

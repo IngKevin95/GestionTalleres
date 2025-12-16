@@ -1,6 +1,7 @@
 from decimal import Decimal
 from datetime import datetime
 from typing import Optional, Dict
+from unittest.mock import Mock
 from app.application.acciones import (
     CrearOrden, AgregarServicio, EstablecerEstadoDiagnosticado,
     Autorizar, EstablecerEstadoEnProceso, IntentarCompletar,
@@ -12,7 +13,7 @@ from app.application.dtos import (
     ReautorizarDTO, EntregarDTO, CancelarDTO, EstablecerCostoRealDTO
 )
 from app.application.ports import RepositorioOrden, AlmacenEventos
-from app.domain.entidades import Orden, Evento, Servicio, Componente
+from app.domain.entidades import Orden, Evento, Servicio, Componente, Cliente, Vehiculo
 from app.domain.exceptions import ErrorDominio
 from app.domain.enums import CodigoError, EstadoOrden
 
@@ -713,3 +714,242 @@ def test_establecer_costo_real_completed_none():
     
     orden_actualizada = repo.obtener("ORD-001")
     assert orden_actualizada.servicios[0].completado is True
+
+
+def test_crear_orden_con_repositorios():
+    repo = RepositorioOrdenMock()
+    audit = AlmacenEventosMock()
+    
+    repo_cliente = Mock()
+    repo_vehiculo = Mock()
+    
+    cliente = Cliente("Juan Pérez")
+    cliente.id_cliente = 1
+    vehiculo = Vehiculo("ABC-123", 1, "Toyota", "Corolla", 2020)
+    vehiculo.id_vehiculo = 1
+    
+    repo_cliente.buscar_o_crear_por_criterio.return_value = cliente
+    repo_vehiculo.buscar_o_crear_por_placa.return_value = vehiculo
+    
+    accion = CrearOrden(repo, audit, repo_cliente, repo_vehiculo)
+    
+    from app.application.dtos import CustomerIdentifierDTO, VehicleIdentifierDTO
+    dto = CrearOrdenDTO(
+        customer=CustomerIdentifierDTO(nombre="Juan Pérez"),
+        vehicle=VehicleIdentifierDTO(placa="ABC-123"),
+        timestamp=datetime.utcnow(),
+        order_id="ORD-001",
+        customer_extra={"correo": "juan@test.com"},
+        vehicle_extra={"marca": "Toyota", "modelo": "Corolla"}
+    )
+    
+    res = accion.ejecutar(dto)
+    assert res.status == "CREATED"
+    repo_cliente.buscar_o_crear_por_criterio.assert_called_once()
+    repo_vehiculo.buscar_o_crear_por_placa.assert_called_once()
+
+
+def test_crear_orden_con_repositorios_id_vehiculo():
+    repo = RepositorioOrdenMock()
+    audit = AlmacenEventosMock()
+    
+    repo_cliente = Mock()
+    repo_vehiculo = Mock()
+    
+    cliente = Cliente("Juan Pérez")
+    cliente.id_cliente = 1
+    vehiculo = Vehiculo("ABC-123", 1, "Toyota", "Corolla", 2020)
+    vehiculo.id_vehiculo = 1
+    
+    repo_cliente.buscar_o_crear_por_criterio.return_value = cliente
+    repo_vehiculo.buscar_por_criterio.return_value = vehiculo
+    
+    accion = CrearOrden(repo, audit, repo_cliente, repo_vehiculo)
+    
+    from app.application.dtos import CustomerIdentifierDTO, VehicleIdentifierDTO
+    dto = CrearOrdenDTO(
+        customer=CustomerIdentifierDTO(nombre="Juan Pérez"),
+        vehicle=VehicleIdentifierDTO(id_vehiculo=1),
+        timestamp=datetime.utcnow(),
+        order_id="ORD-001"
+    )
+    
+    res = accion.ejecutar(dto)
+    assert res.status == "CREATED"
+    repo_vehiculo.buscar_por_criterio.assert_called_once_with(id_vehiculo=1)
+
+
+def test_crear_orden_con_repositorios_vehiculo_no_encontrado():
+    repo = RepositorioOrdenMock()
+    audit = AlmacenEventosMock()
+    
+    repo_cliente = Mock()
+    repo_vehiculo = Mock()
+    
+    cliente = Cliente("Juan Pérez")
+    cliente.id_cliente = 1
+    
+    repo_cliente.buscar_o_crear_por_criterio.return_value = cliente
+    repo_vehiculo.buscar_por_criterio.return_value = None
+    
+    accion = CrearOrden(repo, audit, repo_cliente, repo_vehiculo)
+    
+    from app.application.dtos import CustomerIdentifierDTO, VehicleIdentifierDTO
+    dto = CrearOrdenDTO(
+        customer=CustomerIdentifierDTO(nombre="Juan Pérez"),
+        vehicle=VehicleIdentifierDTO(id_vehiculo=999),
+        timestamp=datetime.utcnow(),
+        order_id="ORD-001"
+    )
+    
+    try:
+        accion.ejecutar(dto)
+        assert False, "Debería lanzar ErrorDominio"
+    except ErrorDominio as e:
+        assert "no encontrado" in str(e.mensaje).lower()
+
+
+def test_crear_orden_con_repositorios_sin_placa_ni_id():
+    repo = RepositorioOrdenMock()
+    audit = AlmacenEventosMock()
+    
+    repo_cliente = Mock()
+    repo_vehiculo = Mock()
+    
+    cliente = Cliente("Juan Pérez")
+    cliente.id_cliente = 1
+    
+    repo_cliente.buscar_o_crear_por_criterio.return_value = cliente
+    
+    accion = CrearOrden(repo, audit, repo_cliente, repo_vehiculo)
+    
+    from app.application.dtos import CustomerIdentifierDTO, VehicleIdentifierDTO
+    dto = CrearOrdenDTO(
+        customer=CustomerIdentifierDTO(nombre="Juan Pérez"),
+        vehicle=VehicleIdentifierDTO(),
+        timestamp=datetime.utcnow(),
+        order_id="ORD-001"
+    )
+    
+    try:
+        accion.ejecutar(dto)
+        assert False, "Debería lanzar ErrorDominio"
+    except ErrorDominio as e:
+        assert "id_vehiculo o placa" in str(e.mensaje).lower()
+
+
+def test_crear_orden_sin_repositorios_con_identificacion():
+    repo = RepositorioOrdenMock()
+    audit = AlmacenEventosMock()
+    
+    accion = CrearOrden(repo, audit)
+    
+    from app.application.dtos import CustomerIdentifierDTO, VehicleIdentifierDTO
+    dto = CrearOrdenDTO(
+        customer=CustomerIdentifierDTO(identificacion="12345678"),
+        vehicle=VehicleIdentifierDTO(placa="ABC-123"),
+        timestamp=datetime.utcnow(),
+        order_id="ORD-001"
+    )
+    
+    res = accion.ejecutar(dto)
+    assert res.status == "CREATED"
+    assert res.customer == "12345678"
+
+
+def test_crear_orden_sin_repositorios_con_id_cliente():
+    repo = RepositorioOrdenMock()
+    audit = AlmacenEventosMock()
+    
+    accion = CrearOrden(repo, audit)
+    
+    from app.application.dtos import CustomerIdentifierDTO, VehicleIdentifierDTO
+    dto = CrearOrdenDTO(
+        customer=CustomerIdentifierDTO(id_cliente=123),
+        vehicle=VehicleIdentifierDTO(id_vehiculo=456),
+        timestamp=datetime.utcnow(),
+        order_id="ORD-001"
+    )
+    
+    res = accion.ejecutar(dto)
+    assert res.status == "CREATED"
+    assert res.customer == "123"
+    assert res.vehicle == "456"
+
+
+def test_crear_orden_sin_repositorios_customer_invalido():
+    repo = RepositorioOrdenMock()
+    audit = AlmacenEventosMock()
+    
+    accion = CrearOrden(repo, audit)
+    
+    from app.application.dtos import CustomerIdentifierDTO, VehicleIdentifierDTO
+    dto = CrearOrdenDTO(
+        customer=CustomerIdentifierDTO(),
+        vehicle=VehicleIdentifierDTO(placa="ABC-123"),
+        timestamp=datetime.utcnow(),
+        order_id="ORD-001"
+    )
+    
+    try:
+        accion.ejecutar(dto)
+        assert False, "Debería lanzar ErrorDominio"
+    except ErrorDominio as e:
+        assert "id_cliente, identificacion o nombre" in str(e.mensaje).lower()
+
+
+def test_crear_orden_ya_existe():
+    repo = RepositorioOrdenMock()
+    audit = AlmacenEventosMock()
+    
+    ord_existente = Orden("ORD-001", "Juan", "Auto", datetime.utcnow())
+    repo.guardar(ord_existente)
+    
+    accion = CrearOrden(repo, audit)
+    
+    from app.application.dtos import CustomerIdentifierDTO, VehicleIdentifierDTO
+    dto = CrearOrdenDTO(
+        customer=CustomerIdentifierDTO(nombre="Otro"),
+        vehicle=VehicleIdentifierDTO(placa="XYZ"),
+        timestamp=datetime.utcnow(),
+        order_id="ORD-001"
+    )
+    
+    res = accion.ejecutar(dto)
+    assert res.order_id == "ORD-001"
+    assert res.customer == "Juan"
+
+
+def test_crear_orden_sin_order_id():
+    repo = RepositorioOrdenMock()
+    audit = AlmacenEventosMock()
+    accion = CrearOrden(repo, audit)
+    
+    from app.application.dtos import CustomerIdentifierDTO, VehicleIdentifierDTO
+    dto = CrearOrdenDTO(
+        customer=CustomerIdentifierDTO(nombre="Juan"),
+        vehicle=VehicleIdentifierDTO(placa="ABC-123"),
+        timestamp=datetime.utcnow(),
+        order_id=""
+    )
+    
+    try:
+        accion.ejecutar(dto)
+        assert False, "Debería lanzar ErrorDominio"
+    except ErrorDominio as e:
+        assert "order_id es requerido" in str(e.mensaje)
+
+
+def test_entregar_orden_no_existe():
+    repo = RepositorioOrdenMock()
+    audit = AlmacenEventosMock()
+    accion = EntregarOrden(repo, audit)
+    
+    from app.application.dtos import EntregarDTO
+    dto = EntregarDTO(order_id="ORD-999")
+    
+    try:
+        accion.ejecutar(dto)
+        assert False, "Debería lanzar ErrorDominio"
+    except ErrorDominio as e:
+        assert e.codigo == CodigoError.ORDER_NOT_FOUND

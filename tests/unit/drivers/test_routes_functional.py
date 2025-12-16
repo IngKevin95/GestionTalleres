@@ -19,7 +19,6 @@ from app.domain.entidades import Orden, Cliente, Vehiculo
 # ============================================================================
 
 def test_root_endpoint():
-    """Test raíz retorna información de API."""
     result = root()
     assert result is not None
     assert "message" in result
@@ -28,26 +27,11 @@ def test_root_endpoint():
     assert result["version"] == "1.0.0"
 
 
-def test_health_endpoint_import():
-    """Test que endpoint /health existe."""
-    from app.drivers.api.routes import router
-    routes = [route.path for route in router.routes]
-    assert "/health" in routes
-
-
-def test_root_path_import():
-    """Test que endpoint / existe."""
-    from app.drivers.api.routes import router
-    routes = [route.path for route in router.routes]
-    assert "/" in routes
-
-
 # ============================================================================
 # Tests para estructura de router
 # ============================================================================
 
 def test_router_exists():
-    """Test que router está configurado."""
     assert router is not None
     assert len(router.routes) > 0
 

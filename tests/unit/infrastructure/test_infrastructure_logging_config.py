@@ -17,6 +17,26 @@ def test_obtener_logger_diferentes_nombres():
     assert logger2.name == "module2"
 
 
+def test_obtener_logger_mismo_nombre():
+    logger1 = obtener_logger("mismo")
+    logger2 = obtener_logger("mismo")
+    assert logger1 is logger2
+
+
+def test_logger_tiene_metodos():
+    logger = obtener_logger("test")
+    assert hasattr(logger, 'debug')
+    assert hasattr(logger, 'info')
+    assert hasattr(logger, 'warning')
+    assert hasattr(logger, 'error')
+    assert hasattr(logger, 'critical')
+
+
+def test_logger_puede_loggear():
+    logger = obtener_logger("test.info")
+    logger.info("Mensaje de test")
+
+
 # Estos tests mockeaban logging completamente, lo que causaba problemas
 # Se comentan porque la configuración de logging funciona bien en tests de integración
 # @patch('app.infrastructure.logging_config.Path')

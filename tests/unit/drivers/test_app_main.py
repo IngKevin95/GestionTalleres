@@ -1,40 +1,52 @@
-"""Tests para aplicación principal FastAPI."""
 import pytest
+from fastapi import FastAPI
 
 
-class TestMainApp:
-    """Tests para app principal."""
+def test_app_es_fastapi():
+    from app.drivers.api.main import app
+    assert isinstance(app, FastAPI)
+
+
+def test_app_tiene_rutas():
+    from app.drivers.api.main import app
+    assert len(app.routes) > 0
+
+
+def test_app_tiene_router():
+    from app.drivers.api.main import app
+    assert app.router is not None
+
+
+def test_app_titulo():
+    from app.drivers.api.main import app
+    assert app.title == "GestionTalleres API"
+
+
+def test_app_version():
+    from app.drivers.api.main import app
+    assert app.version == "1.0.0"
+
+
+def test_app_tiene_cors():
+    from app.drivers.api.main import app
+    middleware_names = [m.cls.__name__ for m in app.user_middleware]
+    assert "CORSMiddleware" in middleware_names
+
+
+def test_app_tiene_logging_middleware():
+    from app.drivers.api.main import app
+    middleware_names = [m.cls.__name__ for m in app.user_middleware]
+    assert "LoggingMiddleware" in middleware_names
+
+
+def test_app_tiene_exception_handlers():
+    from app.drivers.api.main import app
+    from fastapi.exceptions import RequestValidationError, ResponseValidationError
     
-    def test_app_instance_exists(self):
-        """Test que app FastAPI existe."""
-        from app.drivers.api.main import app
-        from fastapi import FastAPI
-        
-        assert isinstance(app, FastAPI)
-    
-    def test_app_has_routes(self):
-        """Test que app tiene rutas."""
-        from app.drivers.api.main import app
-        
-        routes = list(app.routes)
-        assert len(routes) > 0
-    
-    def test_app_router_exists(self):
-        """Test que app tiene router."""
-        from app.drivers.api.main import app
-        
-        assert app.router is not None
-    
-    def test_app_routes_existence(self):
-        """Test existencia de rutas en app."""
-        from app.drivers.api.main import app
-        
-        routes = [route.path for route in app.routes]
-        assert len(routes) > 0
-    
-    def test_app_router_is_valid(self):
-        """Test que app router es válido."""
-        from app.drivers.api.main import app
-        
-        assert app.router is not None
-        assert len(app.routes) >= 1
+    assert RequestValidationError in app.exception_handlers
+    assert ResponseValidationError in app.exception_handlers
+
+
+def test_lifespan_existe():
+    from app.drivers.api.main import lifespan
+    assert callable(lifespan)
