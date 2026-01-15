@@ -190,7 +190,7 @@ Esto crea las tablas: `ordenes`, `clientes`, `vehiculos`, `servicios`, `componen
 uvicorn app.drivers.api.main:app --reload
 ```
 
-El `--reload` hace que se recargue automáticamente cuando cambias código (útil para desarrollo).
+El `--reload` hace que se recargue automáticamente cuando cambias código (útil para desarrollo pero no recomendable en produccion).
 
 La API estará disponible en `http://localhost:8000` y la documentación en `http://localhost:8000/docs`.
 
